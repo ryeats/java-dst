@@ -28,14 +28,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ClusterMain {
+  private static final Logger LOGGER =
+      LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
   private static final SocketAddress[] CLUSTER = {
     new InetSocketAddress("localhost", 2001),
     new InetSocketAddress("localhost", 2002),
     new InetSocketAddress("localhost", 2003),
     new InetSocketAddress("localhost", 2004)
   };
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   public static void main(String... args) throws InterruptedException {
     TransportFactory transportFactory = new NettyTransportFactory();
@@ -55,7 +56,7 @@ public class ClusterMain {
     node0.broadcast("Hi");
     node1.broadcast("Hello");
     node2.broadcast("Howdy");
-    node3.broadcast("...");
+    node3.broadcast("World");
   }
 
   private static Function<Serializable, List<? extends Serializable>> getMessageHandler(int i) {

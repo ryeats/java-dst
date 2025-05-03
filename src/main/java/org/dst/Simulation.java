@@ -37,7 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Simulation {
-  ExecutorService executor = Executors.newSingleThreadExecutor();
+  private static final ExecutorService executor = Executors.newSingleThreadExecutor();
   private static final Logger LOGGER =
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -108,11 +108,16 @@ public class Simulation {
     deterministicExecutor.tick();
   }
 
+  // workaround execution order issues during startup of netty...
+  public void runCurrentTasksInOrder() {
+    deterministicExecutor.runInCurrentQueueOrder();
+  }
+
   public Duration run(SimulationStateChecker simStateChecker) {
     LOGGER.info("Running simulation for seed: {}", seed);
     Instant startTime = Instant.now();
     while (simStateChecker.advance()) {
-      this.tick();
+      //      this.tick();
       Future<?> future = executor.submit(this::tick);
       try {
         future.get(stepTimeout.toNanos(), TimeUnit.NANOSECONDS);

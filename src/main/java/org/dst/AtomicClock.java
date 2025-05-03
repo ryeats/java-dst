@@ -22,9 +22,6 @@ import java.time.ZoneId;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-/*
-Tigerbeetle implements Marzullo clock algorithm for their simulation probably should look at doing the same
- */
 public class AtomicClock extends Clock {
 
   private final Supplier<Instant> supplier;

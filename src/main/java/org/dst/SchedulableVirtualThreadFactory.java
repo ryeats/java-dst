@@ -23,7 +23,6 @@ import java.util.concurrent.ThreadFactory;
 
 public class SchedulableVirtualThreadFactory implements ThreadFactory {
 
-  // Some reflection black magic to violate package privacy
   private static final Class<?> VIRTUAL_THREAD_CLASS;
   private static final Constructor<?> VIRTUAL_THREAD_CONSTRUCTOR;
   private static final Method VIRTUAL_THREAD_UEH_SETTER;

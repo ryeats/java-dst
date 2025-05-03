@@ -127,7 +127,7 @@ public class TransportTest {
         transportFactory.getTransportClient(
             0, TransportTest::handleMessage, TransportTest::handleConnection);
     client0.connect(new LocalAddress("transport-zero"));
-    deterministicExecutor.tick();
+    deterministicExecutor.runInCurrentQueueOrder();
     ConditionFactory timeout = await().atMost(4, SECONDS);
     timeout.untilAsserted(
         () -> {

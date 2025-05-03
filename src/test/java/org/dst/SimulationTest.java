@@ -22,6 +22,7 @@ import io.netty.channel.local.LocalAddress;
 import java.io.Serializable;
 import java.lang.invoke.MethodHandles;
 import java.net.SocketAddress;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -31,7 +32,6 @@ import java.util.function.Function;
 import org.dst.net.SimTransportFactory;
 import org.dst.net.TransportFactory;
 import org.dst.net.cluster.StaticMesh;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,16 +46,17 @@ class SimulationTest {
     new LocalAddress("sim-three"),
     new LocalAddress("sim-four")
   };
-  DeterministicExecutor deterministicExecutor = new DeterministicExecutor(new Random(1234L));
+  DeterministicExecutor deterministicExecutor =
+      new DeterministicExecutor(new Random(new SecureRandom().nextLong()));
 
-  @Disabled("Need to figure out the weird issues with the sim")
   @Test
   void run() {
     Simulation sim = new Simulation();
 
     // TODO the scheduler has to be constructed in the class that is running the sim??????
     TransportFactory transportFactory = new SimTransportFactory(deterministicExecutor);
-    //        TransportFactory transportFactory = new SimTransportFactory(sim.executorService());
+    //            TransportFactory transportFactory = new
+    // SimTransportFactory(sim.executorService());
     StaticMesh node0 = new StaticMesh(transportFactory, getMessageHandler(0), 0, CLUSTER);
     StaticMesh node1 = new StaticMesh(transportFactory, getMessageHandler(1), 1, CLUSTER);
     StaticMesh node2 = new StaticMesh(transportFactory, getMessageHandler(2), 2, CLUSTER);
@@ -69,20 +70,20 @@ class SimulationTest {
         .atMost(5, SECONDS)
         .until(
             () -> {
-              sim.tick();
+              sim.runCurrentTasksInOrder();
               node0.retryFailedConnections();
               node1.retryFailedConnections();
               node2.retryFailedConnections();
               node3.retryFailedConnections();
               return node0.checkClusterStatus().cardinality() == 3;
             });
+    sim.scheduledExecutor().scheduleAtFixedRate(() -> node1.broadcast("1"), 1, 2, SECONDS);
+    sim.scheduledExecutor().scheduleAtFixedRate(() -> node3.broadcast("3"), 2, 3, SECONDS);
+
     Instant start = Instant.now();
     sim.run(
         () -> {
           node0.broadcast("0");
-          //            node1.broadcast("1");
-          node2.broadcast("2");
-          //            node3.broadcast("3");
           return start.plus(5, ChronoUnit.SECONDS).isAfter(Instant.now());
         });
   }

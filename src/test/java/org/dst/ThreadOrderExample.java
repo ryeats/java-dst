@@ -72,7 +72,7 @@ public class ThreadOrderExample {
         throw new RuntimeException(e);
       }
 
-      System.out.println("Result: " + buffer.toString());
+      System.out.println("Result: " + buffer);
     }
   }
 
