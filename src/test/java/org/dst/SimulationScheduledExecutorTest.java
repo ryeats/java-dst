@@ -84,9 +84,7 @@ class SimulationScheduledExecutorTest {
     // Runnable Future Lambda
     AtomicReference<String> ref = new AtomicReference<>();
     Future<AtomicReference<String>> runFuture =
-        se.submit(
-            () -> ref.set(sb.append(6).toString()),
-            ref);
+        se.submit(() -> ref.set(sb.append(6).toString()), ref);
     // Only 3 and 4 should repeat
     assertThat(de.queueSize()).isEqualTo(3);
     assertThat(se.getDelayedQueueSize()).isEqualTo(4);

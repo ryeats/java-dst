@@ -23,19 +23,16 @@ import io.netty.channel.local.LocalAddress;
 import java.io.Serializable;
 import java.lang.invoke.MethodHandles;
 import java.net.SocketAddress;
-import java.time.Instant;
+import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import org.dst.net.SimTransportFactory;
 import org.dst.net.TransportFactory;
 import org.dst.net.cluster.StaticMesh;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +40,6 @@ import org.slf4j.LoggerFactory;
 class SimulationTest {
   private static final Logger LOGGER =
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private ReadWriteLock lock = new ReentrantReadWriteLock();
 
   private static final SocketAddress[] CLUSTER = {
     new LocalAddress("sim-zero"),
@@ -88,12 +84,12 @@ class SimulationTest {
             });
     sim.scheduledExecutor().scheduleAtFixedRate(() -> node1.broadcast("1"), 1, 2, SECONDS);
     sim.scheduledExecutor().scheduleAtFixedRate(() -> node3.send(0, "3"), 2, 3, SECONDS);
-    Instant start = Instant.now();
     sim.run(
         () -> {
           node0.broadcast("0");
-          return start.plus(5, ChronoUnit.SECONDS).isAfter(Instant.now());
-        });
+          return msgCounters.get(0).get() < 1000;
+        },
+        Duration.of(5, ChronoUnit.SECONDS));
 
     LOGGER.info("sim-zero msg count: {}", msgCounters.get(0));
     LOGGER.info("sim-one msg count: {}", msgCounters.get(1));
@@ -110,117 +106,27 @@ class SimulationTest {
     });
   }
 
-  @Disabled
   @Test
-  public void runSimulationBlockedSleepTest() {
-    assertThatThrownBy(
-            () -> {
-              lock = new ReentrantReadWriteLock();
-              Simulation sim = new Simulation();
-              sim.scheduledExecutor().schedule(this::blockingLockCallWithSleep, 10, SECONDS);
-              sim.scheduledExecutor().schedule(this::blockingLockCallWithSleep, 12, SECONDS);
-              AtomicLong counter = new AtomicLong();
-              Instant start = Instant.now();
-              sim.run(
-                  () -> {
-                    counter.incrementAndGet();
-                    return start.plus(2, ChronoUnit.SECONDS).isAfter(Instant.now());
-                  });
-            })
-        .isInstanceOf(SimulationException.class);
-  }
-
-  @Test
-  public void runSimulationBlockedWhileLoopTest() {
-    assertThatThrownBy(
-            () -> {
-              lock = new ReentrantReadWriteLock();
-              Simulation sim = new Simulation();
-              sim.scheduledExecutor().schedule(this::blockingLockCallWithWhile, 10, SECONDS);
-              sim.scheduledExecutor().schedule(this::blockingLockCallWithWhile, 12, SECONDS);
-              AtomicLong counter = new AtomicLong();
-              Instant start = Instant.now();
-              sim.run(
-                  () -> {
-                    counter.incrementAndGet();
-                    return start.plus(2, ChronoUnit.SECONDS).isAfter(Instant.now());
-                  });
-            })
-        .isInstanceOf(SimulationException.class);
-  }
-
-  @Disabled
-  @Test
-  public void runSimulationSyncSleepTest() {
+  public void runSimulationHangTest() {
     assertThatThrownBy(
             () -> {
               Simulation sim = new Simulation();
               sim.scheduledExecutor()
-                  .schedule(this::synchronizedBlockingCallWithSleep, 10, SECONDS);
-              sim.scheduledExecutor()
-                  .schedule(this::synchronizedBlockingCallWithSleep, 12, SECONDS);
+                  .schedule(
+                      () -> {
+                        while (true)
+                          ;
+                      },
+                      10,
+                      SECONDS);
               AtomicLong counter = new AtomicLong();
-              Instant start = Instant.now();
               sim.run(
                   () -> {
                     counter.incrementAndGet();
-                    return start.plus(2, ChronoUnit.SECONDS).isAfter(Instant.now());
-                  });
+                    return true;
+                  },
+                  15L);
             })
         .isInstanceOf(SimulationException.class);
-  }
-
-  @Test
-  public void runSimulationSyncWhileLoopTest() {
-    assertThatThrownBy(
-            () -> {
-              Simulation sim = new Simulation();
-              sim.scheduledExecutor()
-                  .schedule(this::synchronizedBlockingCallWithWhile, 10, SECONDS);
-              sim.scheduledExecutor()
-                  .schedule(this::synchronizedBlockingCallWithWhile, 12, SECONDS);
-              AtomicLong counter = new AtomicLong();
-              Instant start = Instant.now();
-              sim.run(
-                  () -> {
-                    counter.incrementAndGet();
-                    return start.plus(2, ChronoUnit.SECONDS).isAfter(Instant.now());
-                  });
-            })
-        .isInstanceOf(SimulationException.class);
-  }
-
-  public void blockingLockCallWithSleep() {
-
-    lock.writeLock().lock();
-    LOGGER.info("Locked!");
-    try {
-      Thread.sleep(10000);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-    lock.writeLock().unlock();
-  }
-
-  public void blockingLockCallWithWhile() {
-    lock.writeLock().lock();
-    LOGGER.info("Locked!");
-    while (true)
-      ;
-  }
-
-  public synchronized void synchronizedBlockingCallWithSleep() {
-    LOGGER.info("Locked!");
-    try {
-      Thread.sleep(10000);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public synchronized void synchronizedBlockingCallWithWhile() {
-    LOGGER.info("Locked!");
-    while (true)
-      ;
   }
 }

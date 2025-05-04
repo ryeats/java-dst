@@ -58,7 +58,7 @@ public class DeterministicExecutor implements Executor {
         future.get(tickTimeout, TimeUnit.SECONDS);
       } catch (TimeoutException e) {
         TimeoutException newException = new TimeoutException("Simulation task took too long.");
-        //TODO don't know how to populate stack of stuck thread but this is empty
+        // TODO don't know how to populate stack of stuck thread but this is empty
         newException.setStackTrace(taskThread.getStackTrace());
         future.cancel(true);
         throw newException;

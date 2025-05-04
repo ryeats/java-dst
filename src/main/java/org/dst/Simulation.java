@@ -113,13 +113,24 @@ public class Simulation {
     deterministicExecutor.runInCurrentQueueOrder();
   }
 
-  // TODO Add run with simulation duration in sim ticks or real time
-  // TODO change simulation return value to be a status about the end state
   public Duration run(SimulationStateChecker simStateChecker) {
+    return run(simStateChecker, null, null);
+  }
+
+  public Duration run(SimulationStateChecker simStateChecker, Duration duration) {
+    return run(simStateChecker, duration, null);
+  }
+
+  public Duration run(SimulationStateChecker simStateChecker, long tickCount) {
+    return run(simStateChecker, null, tickCount);
+  }
+
+  private Duration run(SimulationStateChecker simStateChecker, Duration duration, Long tickCount) {
     LOGGER.info("Running simulation for seed: {}", seed);
     Instant startTime = Instant.now();
+    Instant until = duration != null ? startTime.plus(duration) : null;
     try {
-      while (simStateChecker.advance()) {
+      while (simStateChecker.advance() && checkTerminationConditions(until, tickCount)) {
         this.tick();
       }
     } catch (Exception e) {
@@ -132,6 +143,16 @@ public class Simulation {
         runDuration.getSeconds(),
         String.format("%.2f", timeStep.get() / 60.0 / 60.0));
     return runDuration;
+  }
+
+  private boolean checkTerminationConditions(Instant until, Long tickCount) {
+    if (until == null && tickCount == null) {
+      return true;
+    }
+    if (until != null && until.isAfter(Instant.now())) {
+      return true;
+    }
+    return tickCount != null && timeStep.get() < tickCount;
   }
 
   public long getTickTimeout() {
