@@ -24,7 +24,6 @@ public class ThreadOrderExample {
   /*
    Run with java 24 jvm args: --add-opens=java.base/java.lang=ALL-UNNAMED
   */
-  // TODO move this to a test
   public static void main(String[] args) throws InterruptedException {
     //    System.setProperty("jdk.virtualThreadScheduler.parallelism","1");
     //    System.setProperty("jdk.virtualThreadScheduler.maxPoolSize","1");

@@ -306,7 +306,6 @@ public class SimulationScheduledExecutor extends AbstractExecutorService
         super.run();
       } else if (super.runAndReset()) {
         setNextRunTime();
-        // TODO this should be called even thought the runnable was wrapped in a virtual thread
         reExecutePeriodic(outerTask);
       }
     }

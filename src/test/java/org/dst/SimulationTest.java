@@ -22,12 +22,10 @@ import io.netty.channel.local.LocalAddress;
 import java.io.Serializable;
 import java.lang.invoke.MethodHandles;
 import java.net.SocketAddress;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.function.Function;
 import org.dst.net.SimTransportFactory;
 import org.dst.net.TransportFactory;
@@ -46,17 +44,11 @@ class SimulationTest {
     new LocalAddress("sim-three"),
     new LocalAddress("sim-four")
   };
-  DeterministicExecutor deterministicExecutor =
-      new DeterministicExecutor(new Random(new SecureRandom().nextLong()));
 
   @Test
   void run() {
     Simulation sim = new Simulation();
-
-    // TODO the scheduler has to be constructed in the class that is running the sim??????
-    TransportFactory transportFactory = new SimTransportFactory(deterministicExecutor);
-    //            TransportFactory transportFactory = new
-    // SimTransportFactory(sim.executorService());
+    TransportFactory transportFactory = new SimTransportFactory(sim.executor());
     StaticMesh node0 = new StaticMesh(transportFactory, getMessageHandler(0), 0, CLUSTER);
     StaticMesh node1 = new StaticMesh(transportFactory, getMessageHandler(1), 1, CLUSTER);
     StaticMesh node2 = new StaticMesh(transportFactory, getMessageHandler(2), 2, CLUSTER);

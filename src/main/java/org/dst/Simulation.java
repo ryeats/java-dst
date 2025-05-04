@@ -23,21 +23,17 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.random.RandomGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Simulation {
-  private static final ExecutorService executor = Executors.newSingleThreadExecutor();
   private static final Logger LOGGER =
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -50,7 +46,6 @@ public class Simulation {
   private final DeterministicExecutor deterministicExecutor;
   private final ThreadFactory threadFactory;
   private final long seed;
-  private final Duration stepTimeout = Duration.ofSeconds(3);
 
   public Simulation(long seed, Duration stepDuration) {
     clock = new AtomicClock(stepDuration, timeStep);
@@ -85,6 +80,10 @@ public class Simulation {
     return this.executorService;
   }
 
+  public Executor executor() {
+    return this.deterministicExecutor;
+  }
+
   public RandomGenerator random() {
     return random;
   }
@@ -117,16 +116,7 @@ public class Simulation {
     LOGGER.info("Running simulation for seed: {}", seed);
     Instant startTime = Instant.now();
     while (simStateChecker.advance()) {
-      //      this.tick();
-      Future<?> future = executor.submit(this::tick);
-      try {
-        future.get(stepTimeout.toNanos(), TimeUnit.NANOSECONDS);
-      } catch (TimeoutException e) {
-        LOGGER.error("Task timed out. Cancelling...", e);
-        future.cancel(true); // Interrupt the thread
-      } catch (InterruptedException | ExecutionException e) {
-        LOGGER.error("Timed out with exception", e);
-      }
+      this.tick();
     }
     Duration runDuration = startTime.until(Instant.now());
     LOGGER.info(

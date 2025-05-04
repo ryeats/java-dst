@@ -51,7 +51,6 @@ class SimulationScheduledExecutorTest {
     RandomGenerator random = new Random(654321L);
     de = new DeterministicExecutor(random);
     tf = new SchedulableVirtualThreadFactory(de);
-    // TODO should make this work with a Executors.newSingleThreadExecutor();
     se = new SimulationScheduledExecutor(clock, Executors.newThreadPerTaskExecutor(tf));
   }
 
