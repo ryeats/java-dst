@@ -21,7 +21,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 /*
- Probably a better way using priority blocking queue so that only one sleeping thread is every checked
+ TODO This will prevent simulation from advancing need to find a way to park threads based off a simulation clock
 */
 public class SimulationThread {
   private static Clock clock = Clock.systemUTC();
@@ -33,6 +33,9 @@ public class SimulationThread {
   public static void sleep(Instant instant) {
     while (Instant.now(clock).isBefore(instant)) {
       Thread.yield();
+      // Possibly wait and then schedule a runnable to notify?
+      //      Thread.currentThread().wait();
+      //      Thread.currentThread().notify();
     }
   }
 

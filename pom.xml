@@ -177,7 +177,7 @@
                         -Dio.netty.tryReflectionSetAccessible=true
                     </argLine>
                     <systemPropertyVariables>
-                        <org.slf4j.simpleLogger.defaultLogLevel>trace</org.slf4j.simpleLogger.defaultLogLevel>
+                        <org.slf4j.simpleLogger.defaultLogLevel>info</org.slf4j.simpleLogger.defaultLogLevel>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

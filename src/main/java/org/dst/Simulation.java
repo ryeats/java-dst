@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.random.RandomGenerator;
 import org.slf4j.Logger;
@@ -100,7 +101,7 @@ public class Simulation {
     return timeStep.get();
   }
 
-  public void tick() {
+  public void tick() throws TimeoutException {
     timeStep.incrementAndGet();
     scheduledExecutors.forEach(SimulationScheduledExecutor::tick);
     scheduledExecutor.tick();
@@ -112,18 +113,32 @@ public class Simulation {
     deterministicExecutor.runInCurrentQueueOrder();
   }
 
+  // TODO Add run with simulation duration in sim ticks or real time
+  // TODO change simulation return value to be a status about the end state
   public Duration run(SimulationStateChecker simStateChecker) {
     LOGGER.info("Running simulation for seed: {}", seed);
     Instant startTime = Instant.now();
-    while (simStateChecker.advance()) {
-      this.tick();
+    try {
+      while (simStateChecker.advance()) {
+        this.tick();
+      }
+    } catch (Exception e) {
+      throw new SimulationException(seed, e);
     }
     Duration runDuration = startTime.until(Instant.now());
     LOGGER.info(
-        "Simulation ran for {}s and {}ns for {} simulation ticks",
+        "Simulation seed {} ran for {}s with total simulation time of {}hrs",
+        seed,
         runDuration.getSeconds(),
-        runDuration.getNano(),
-        timeStep.get());
+        String.format("%.2f", timeStep.get() / 60.0 / 60.0));
     return runDuration;
+  }
+
+  public long getTickTimeout() {
+    return deterministicExecutor.getTickTimeout();
+  }
+
+  public void setTickTimeout(long tickTimeout) {
+    this.deterministicExecutor.setTickTimeout(tickTimeout);
   }
 }

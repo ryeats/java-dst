@@ -17,16 +17,16 @@ package org.dst.net;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadFactory;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class SimTransportFactory implements TransportFactory {
 
-  private final Executor scheduler;
+  private final ThreadFactory threadFactory;
 
-  public SimTransportFactory(Executor scheduler) {
-    this.scheduler = scheduler;
+  public SimTransportFactory(ThreadFactory threadFactory) {
+    this.threadFactory = threadFactory;
   }
 
   @Override
@@ -34,7 +34,7 @@ public class SimTransportFactory implements TransportFactory {
       int id,
       Function<Serializable, List<? extends Serializable>> handleMessage,
       Consumer<Connection> connectionHandler) {
-    return new SimTransportClient(id, handleMessage, connectionHandler, scheduler);
+    return new SimTransportClient(id, handleMessage, connectionHandler, threadFactory);
   }
 
   @Override
@@ -42,6 +42,6 @@ public class SimTransportFactory implements TransportFactory {
       int id,
       Function<Serializable, List<? extends Serializable>> handleMessage,
       Consumer<Connection> connectionHandler) {
-    return new SimTransportServer(id, handleMessage, connectionHandler, scheduler);
+    return new SimTransportServer(id, handleMessage, connectionHandler, threadFactory);
   }
 }

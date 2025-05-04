@@ -28,11 +28,9 @@ import java.io.Serializable;
 import java.net.SocketAddress;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.dst.SchedulableVirtualThreadFactory;
 
 public class SimTransportClient implements TransportClient {
   private final Bootstrap client = new Bootstrap();
@@ -42,16 +40,15 @@ public class SimTransportClient implements TransportClient {
       int id,
       Function<Serializable, List<? extends Serializable>> handleMessage,
       Consumer<Connection> connectionHandler,
-      Executor scheduler) {
-    ThreadFactory tf = new SchedulableVirtualThreadFactory(scheduler);
-    group = new MultiThreadIoEventLoopGroup(tf, LocalIoHandler.newFactory());
+      ThreadFactory threadFactory) {
+    group = new MultiThreadIoEventLoopGroup(threadFactory, LocalIoHandler.newFactory());
     client
         .group(group)
         .channel(LocalChannel.class)
         .handler(
             new ChannelInitializer<LocalChannel>() {
               @Override
-              public void initChannel(LocalChannel ch) throws Exception {
+              public void initChannel(LocalChannel ch) {
                 ch.pipeline()
                     .addLast(
                         new ObjectEncoder(),

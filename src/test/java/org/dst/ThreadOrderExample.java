@@ -19,12 +19,13 @@ import java.util.Random;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
 
 public class ThreadOrderExample {
   /*
    Run with java 24 jvm args: --add-opens=java.base/java.lang=ALL-UNNAMED
   */
-  public static void main(String[] args) throws InterruptedException {
+  public static void main(String[] args) throws InterruptedException, TimeoutException {
     //    System.setProperty("jdk.virtualThreadScheduler.parallelism","1");
     //    System.setProperty("jdk.virtualThreadScheduler.maxPoolSize","1");
     //    System.setProperty("jdk.virtualThreadScheduler.minRunnable","1");

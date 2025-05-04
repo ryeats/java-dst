@@ -23,10 +23,12 @@ import io.netty.channel.local.LocalAddress;
 import java.io.Serializable;
 import java.lang.invoke.MethodHandles;
 import java.net.SocketAddress;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.awaitility.core.ConditionFactory;
 import org.dst.net.SimTransportFactory;
@@ -49,16 +51,19 @@ public class ClusterTest {
     new LocalAddress("cluster-three"),
     new LocalAddress("cluster-our")
   };
-  DeterministicExecutor deterministicExecutor = new DeterministicExecutor(new Random(1234L));
+
   private static final Logger LOGGER =
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  private static List<Serializable> messages = new ArrayList<>();
+  private static final List<Serializable> messages = new ArrayList<>();
 
   @Test
-  void testStaticMesh() throws InterruptedException {
+  void testStaticMesh() throws TimeoutException {
+    long seed = new SecureRandom().nextLong();
+    DeterministicExecutor deterministicExecutor = new DeterministicExecutor(new Random(seed));
     //        TransportFactory transportFactory = new NettyTransportFactory();
-    TransportFactory transportFactory = new SimTransportFactory(deterministicExecutor);
+    TransportFactory transportFactory =
+        new SimTransportFactory(new SchedulableVirtualThreadFactory(deterministicExecutor));
     StaticMesh node0 = new StaticMesh(transportFactory, getMessageHandler(0), 0, CLUSTER);
     StaticMesh node1 = new StaticMesh(transportFactory, getMessageHandler(1), 1, CLUSTER);
     StaticMesh node2 = new StaticMesh(transportFactory, getMessageHandler(2), 2, CLUSTER);

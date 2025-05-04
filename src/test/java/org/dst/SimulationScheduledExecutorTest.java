@@ -24,6 +24,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.random.RandomGenerator;
@@ -59,7 +60,7 @@ class SimulationScheduledExecutorTest {
   }
 
   @Test
-  void testScheduledExecution() {
+  void testScheduledExecution() throws TimeoutException {
     ScheduledFuture<String> scheduledCallFuture =
         se.schedule(() -> sb.append(1).toString(), 2, TimeUnit.SECONDS);
 
@@ -84,9 +85,7 @@ class SimulationScheduledExecutorTest {
     AtomicReference<String> ref = new AtomicReference<>();
     Future<AtomicReference<String>> runFuture =
         se.submit(
-            () -> {
-              ref.set(sb.append(6).toString());
-            },
+            () -> ref.set(sb.append(6).toString()),
             ref);
     // Only 3 and 4 should repeat
     assertThat(de.queueSize()).isEqualTo(3);
@@ -108,7 +107,7 @@ class SimulationScheduledExecutorTest {
     assertThat("06532313434334").startsWith(sb.toString());
   }
 
-  public void runSimulationStep() {
+  public void runSimulationStep() throws TimeoutException {
     long time = clock.tick();
     se.tick();
     de.tick();

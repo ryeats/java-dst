@@ -107,7 +107,8 @@ public class TransportTest {
   void transportSimTest() throws InterruptedException {
     long seed = new SecureRandom().nextLong();
     DeterministicExecutor deterministicExecutor = new DeterministicExecutor(new Random(seed));
-    TransportFactory transportFactory = new SimTransportFactory(deterministicExecutor);
+    TransportFactory transportFactory =
+        new SimTransportFactory(new SchedulableVirtualThreadFactory(deterministicExecutor));
     TransportServer server0 =
         transportFactory.getTransportServer(
             0, TransportTest::handleMessage, TransportTest::handleConnection);

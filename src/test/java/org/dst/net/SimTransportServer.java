@@ -29,17 +29,15 @@ import java.io.Closeable;
 import java.io.Serializable;
 import java.net.SocketAddress;
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.dst.SchedulableVirtualThreadFactory;
 
 public class SimTransportServer implements TransportServer, Closeable {
   private final int id;
   private final Function<Serializable, List<? extends Serializable>> messageHandler;
   private final Consumer<Connection> connectionHandler;
-  private final Executor scheduler;
+  private final ThreadFactory threadFactory;
   private ServerBootstrap server;
   private EventLoopGroup bossGroup;
 
@@ -47,18 +45,16 @@ public class SimTransportServer implements TransportServer, Closeable {
       int id,
       Function<Serializable, List<? extends Serializable>> messageHandler,
       Consumer<Connection> connectionHandler,
-      Executor scheduler) {
+      ThreadFactory threadFactory) {
     this.messageHandler = messageHandler;
     this.connectionHandler = connectionHandler;
-    this.scheduler = scheduler;
+    this.threadFactory = threadFactory;
     this.id = id;
   }
 
   @Override
   public void listen(SocketAddress address) {
-    ThreadFactory tf = new SchedulableVirtualThreadFactory(scheduler);
-    // Here is the magic we just have to add virtual thread factory to the event loop
-    bossGroup = new MultiThreadIoEventLoopGroup(tf, LocalIoHandler.newFactory());
+    bossGroup = new MultiThreadIoEventLoopGroup(threadFactory, LocalIoHandler.newFactory());
     server =
         new ServerBootstrap()
             .group(bossGroup)
@@ -66,7 +62,7 @@ public class SimTransportServer implements TransportServer, Closeable {
             .childHandler(
                 new ChannelInitializer<LocalChannel>() {
                   @Override
-                  public void initChannel(LocalChannel ch) throws Exception {
+                  public void initChannel(LocalChannel ch) {
                     ch.pipeline()
                         .addLast(
                             new ObjectEncoder(),
