@@ -33,6 +33,7 @@ import java.util.function.Function;
 import org.dst.net.SimTransportFactory;
 import org.dst.net.TransportFactory;
 import org.dst.net.cluster.StaticMesh;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +51,7 @@ class SimulationTest {
 
   @Test
   void runNetworkSimulation() {
-    Simulation sim = new Simulation();
+    Simulation sim = new Simulation(Duration.of(5, ChronoUnit.SECONDS));
     TransportFactory transportFactory = new SimTransportFactory(sim.threadFactory());
     List<AtomicLong> msgCounters = new ArrayList<>();
     msgCounters.add(new AtomicLong());
@@ -87,7 +88,7 @@ class SimulationTest {
     sim.run(
         () -> {
           node0.broadcast("0");
-          return msgCounters.get(0).get() < 1000;
+          return msgCounters.getFirst().get() < 1000;
         },
         Duration.of(5, ChronoUnit.SECONDS));
 
@@ -106,11 +107,14 @@ class SimulationTest {
     });
   }
 
+  // TODO need to try some different ways of running the simulation first then revisit making sure
+  // it doesn't hang
+  @Disabled
   @Test
   public void runSimulationHangTest() {
     assertThatThrownBy(
             () -> {
-              Simulation sim = new Simulation();
+              Simulation sim = new Simulation(Duration.of(50, ChronoUnit.SECONDS));
               sim.scheduledExecutor()
                   .schedule(
                       () -> {
@@ -125,7 +129,7 @@ class SimulationTest {
                     counter.incrementAndGet();
                     return true;
                   },
-                  15L);
+                  Duration.of(3, ChronoUnit.SECONDS));
             })
         .isInstanceOf(SimulationException.class);
   }

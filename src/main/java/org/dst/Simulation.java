@@ -58,12 +58,8 @@ public class Simulation {
     this.seed = seed;
   }
 
-  public Simulation(long seed) {
-    this(seed, Duration.ofSeconds(1));
-  }
-
-  public Simulation() {
-    this(new SecureRandom().nextLong(), Duration.ofSeconds(1));
+  public Simulation(Duration duration) {
+    this(new SecureRandom().nextLong(), duration);
   }
 
   public ScheduledExecutorService scheduledExecutor() {
@@ -113,53 +109,26 @@ public class Simulation {
     deterministicExecutor.runInCurrentQueueOrder();
   }
 
-  public Duration run(SimulationStateChecker simStateChecker) {
-    return run(simStateChecker, null, null);
-  }
-
-  public Duration run(SimulationStateChecker simStateChecker, Duration duration) {
-    return run(simStateChecker, duration, null);
-  }
-
-  public Duration run(SimulationStateChecker simStateChecker, long tickCount) {
-    return run(simStateChecker, null, tickCount);
-  }
-
-  private Duration run(SimulationStateChecker simStateChecker, Duration duration, Long tickCount) {
+  public void run(SimulationStateChecker simStateChecker, Duration duration) {
     LOGGER.info("Running simulation for seed: {}", seed);
-    Instant startTime = Instant.now();
-    Instant until = duration != null ? startTime.plus(duration) : null;
+    Instant wallTime = Instant.now();
+    Instant until = Instant.now(clock).plus(duration);
     try {
-      while (simStateChecker.advance() && checkTerminationConditions(until, tickCount)) {
+      while (simStateChecker.advance() && until.isAfter(Instant.now(clock))) {
         this.tick();
       }
     } catch (Exception e) {
       throw new SimulationException(seed, e);
     }
-    Duration runDuration = startTime.until(Instant.now());
-    LOGGER.info(
-        "Simulation seed {} ran for {}s with total simulation time of {}hrs",
-        seed,
-        runDuration.getSeconds(),
-        String.format("%.2f", timeStep.get() / 60.0 / 60.0));
-    return runDuration;
+    Duration runDuration = wallTime.until(Instant.now());
+    LOGGER.info("Simulation seed {} ran for {}s", seed, runDuration.getSeconds());
   }
 
-  private boolean checkTerminationConditions(Instant until, Long tickCount) {
-    if (until == null && tickCount == null) {
-      return true;
-    }
-    if (until != null && until.isAfter(Instant.now())) {
-      return true;
-    }
-    return tickCount != null && timeStep.get() < tickCount;
+  public Thread startSimulationThread(SimulationStateChecker simStateChecker, Duration duration) {
+    return Thread.ofPlatform().name("simulation").start(() -> run(simStateChecker, duration));
   }
 
-  public long getTickTimeout() {
-    return deterministicExecutor.getTickTimeout();
-  }
-
-  public void setTickTimeout(long tickTimeout) {
-    this.deterministicExecutor.setTickTimeout(tickTimeout);
+  public long getSeed() {
+    return seed;
   }
 }

@@ -29,7 +29,7 @@ The following table is an attempt to exhaustively describe the issues that need 
 
 The main takeaways from the above table to implement deterministic simulation for an application are: 
 - Dependencies which use Alternative/Instrument/Not supported features from the above table have to be stubbed out or instrumented.
-- Synchronous file IO captures the simulation virtual threads so can't simulate thread interleaving.
+- Synchronous file IO captures the simulation virtual threads so won't simulate thread interleaving.
 - IO operations have to be stubbed out to be able to introduce errors.
 - External calls have to be stubbed out.
 
@@ -42,3 +42,8 @@ Some good videos and articles on deterministic simulation:
 - [Using Java's Project Loom to build more reliable distributed systems](https://jbaker.io/2022/05/09/project-loom-for-distributed-systems/)
 - [Deterministic Simulation: A New Era of Distributed System Testing (Part 1 of 2)](https://risingwave9.wpcomstaging.com/blog/deterministic-simulation-a-new-era-of-distributed-system-testing/)
 - [Applying Deterministic Simulation: The RisingWave Story (Part 2 of 2)](https://www.risingwave.com/blog/applying-deterministic-simulation-the-risingwave-story-part-2-of-2/)
+
+
+This library tries to aproach deterministic simulation by splitting it into seperate components that can be used seperatly or together depending on how close to true determinism you are able to get. It's practicle to just use DeterminsticExecuture to test 
+
+The main steps to using this library are a bit complicated but first would be creating a Simulation object to manage the simulation game loop. Instrument the code under simulation replacing clock and anything dealing with threads with the simulation clock and thread factories. Add simulation tasks to drive and test the simulation. Add chaos agents to temporarily modify the state of the system under test. TBD: Stub out the IO and external calls so we can introduce error and latency deterministically.  
