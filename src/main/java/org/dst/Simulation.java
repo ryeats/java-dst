@@ -49,7 +49,7 @@ public class Simulation {
   private final long seed;
 
   public Simulation(long seed, Duration stepDuration) {
-    clock = new AtomicClock(stepDuration, timeStep);
+    clock = new SimulationClock(stepDuration, timeStep);
     this.random = new Random(seed);
     this.deterministicExecutor = new DeterministicExecutor(random);
     this.threadFactory = new SchedulableVirtualThreadFactory(deterministicExecutor);

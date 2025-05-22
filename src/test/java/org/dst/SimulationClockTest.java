@@ -23,9 +23,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class AtomicClockTest {
+class SimulationClockTest {
 
-  private AtomicClock clock;
+  private SimulationClock clock;
   private AtomicLong step;
   private Instant startTime;
 
@@ -33,7 +33,7 @@ class AtomicClockTest {
   void setUp() {
     startTime = Instant.now();
     step = new AtomicLong();
-    clock = new AtomicClock(startTime, Duration.ofSeconds(1), step);
+    clock = new SimulationClock(startTime, Duration.ofSeconds(1), step);
   }
 
   @Test

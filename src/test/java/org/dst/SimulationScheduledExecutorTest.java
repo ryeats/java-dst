@@ -38,7 +38,7 @@ class SimulationScheduledExecutorTest {
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   private AtomicLong step;
-  private AtomicClock clock;
+  private SimulationClock clock;
   private SimulationScheduledExecutor se;
   private StringBuffer sb;
   private ThreadFactory tf;
@@ -48,7 +48,7 @@ class SimulationScheduledExecutorTest {
   public void setup() {
     step = new AtomicLong();
     sb = new StringBuffer();
-    clock = new AtomicClock(step);
+    clock = new SimulationClock(step);
     RandomGenerator random = new Random(654321L);
     de = new DeterministicExecutor(random);
     tf = new SchedulableVirtualThreadFactory(de);

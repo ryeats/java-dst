@@ -22,7 +22,7 @@ import java.time.ZoneId;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-public class AtomicClock extends Clock {
+public class SimulationClock extends Clock {
 
   private final Supplier<Instant> supplier;
 
@@ -30,29 +30,29 @@ public class AtomicClock extends Clock {
 
   private AtomicLong step;
 
-  public AtomicClock() {
+  public SimulationClock() {
     this(Instant.now(), Duration.ofSeconds(1), new AtomicLong());
   }
 
-  public AtomicClock(final AtomicLong step) {
+  public SimulationClock(final AtomicLong step) {
     this(Instant.now(), Duration.ofSeconds(1), step);
   }
 
-  public AtomicClock(Duration duration, final AtomicLong step) {
+  public SimulationClock(Duration duration, final AtomicLong step) {
     this(Instant.now(), duration, step);
   }
 
-  public AtomicClock(Instant startTime, Duration duration, final AtomicLong step) {
+  public SimulationClock(Instant startTime, Duration duration, final AtomicLong step) {
     this(() -> startTime.plus(duration.multipliedBy(step.get())));
     this.step = step;
   }
 
-  public AtomicClock(Supplier<Instant> supplier) {
+  public SimulationClock(Supplier<Instant> supplier) {
     this(supplier, ZoneId.of("Z"));
     this.step = new AtomicLong();
   }
 
-  public AtomicClock(Supplier<Instant> supplier, ZoneId zone) {
+  public SimulationClock(Supplier<Instant> supplier, ZoneId zone) {
     this.supplier = supplier;
     this.zone = zone;
     this.step = new AtomicLong();
@@ -69,7 +69,7 @@ public class AtomicClock extends Clock {
 
   @Override
   public Clock withZone(ZoneId newZone) {
-    return new AtomicClock(supplier, newZone);
+    return new SimulationClock(supplier, newZone);
   }
 
   @Override
