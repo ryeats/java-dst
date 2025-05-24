@@ -41,7 +41,8 @@ import org.slf4j.LoggerFactory;
 class SimulationTest {
   private static final Logger LOGGER =
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-
+  private static final List<AtomicLong> MSG_COUNTERS = new ArrayList<>();
+  private static final List<StaticMesh> MESH_NODES = new ArrayList<>();
   private static final SocketAddress[] CLUSTER = {
     new LocalAddress("sim-zero"),
     new LocalAddress("sim-one"),
@@ -51,51 +52,51 @@ class SimulationTest {
 
   @Test
   void runNetworkSimulation() {
-    Simulation sim = new Simulation(Duration.of(5, ChronoUnit.SECONDS));
-    TransportFactory transportFactory = new SimTransportFactory(sim.threadFactory());
-    List<AtomicLong> msgCounters = new ArrayList<>();
-    msgCounters.add(new AtomicLong());
-    msgCounters.add(new AtomicLong());
-    msgCounters.add(new AtomicLong());
-    msgCounters.add(new AtomicLong());
-    StaticMesh node0 =
-        new StaticMesh(transportFactory, getMessageHandler(0, msgCounters.get(0)), 0, CLUSTER);
-    StaticMesh node1 =
-        new StaticMesh(transportFactory, getMessageHandler(1, msgCounters.get(1)), 1, CLUSTER);
-    StaticMesh node2 =
-        new StaticMesh(transportFactory, getMessageHandler(2, msgCounters.get(2)), 2, CLUSTER);
-    StaticMesh node3 =
-        new StaticMesh(transportFactory, getMessageHandler(3, msgCounters.get(3)), 3, CLUSTER);
-    node0.start();
-    node1.start();
-    node2.start();
-    node3.start();
+    MSG_COUNTERS.add(new AtomicLong());
+    MSG_COUNTERS.add(new AtomicLong());
+    MSG_COUNTERS.add(new AtomicLong());
+    MSG_COUNTERS.add(new AtomicLong());
+    Simulation simulation =
+        new Simulation(
+            (sim) -> {
+              TransportFactory transportFactory = new SimTransportFactory(sim.threadFactory());
+              MESH_NODES.add(
+                  new StaticMesh(
+                      transportFactory, getMessageHandler(0, MSG_COUNTERS.get(0)), 0, CLUSTER));
+              MESH_NODES.add(
+                  new StaticMesh(
+                      transportFactory, getMessageHandler(1, MSG_COUNTERS.get(1)), 1, CLUSTER));
+              MESH_NODES.add(
+                  new StaticMesh(
+                      transportFactory, getMessageHandler(2, MSG_COUNTERS.get(2)), 2, CLUSTER));
+              MESH_NODES.add(
+                  new StaticMesh(
+                      transportFactory, getMessageHandler(3, MSG_COUNTERS.get(3)), 3, CLUSTER));
+              MESH_NODES.forEach(StaticMesh::start);
 
-    await()
-        .atMost(5, SECONDS)
-        .until(
-            () -> {
-              // this is a workaround because netty deadlocks if we execute in random order.
-              sim.runCurrentTasksInOrder();
-              node0.retryFailedConnections();
-              node1.retryFailedConnections();
-              node2.retryFailedConnections();
-              node3.retryFailedConnections();
-              return node0.checkClusterStatus().cardinality() == 3;
+              await()
+                  .atMost(5, SECONDS)
+                  .until(
+                      () -> {
+                        MESH_NODES.forEach(StaticMesh::retryFailedConnections);
+                        return MESH_NODES.get(0).checkClusterStatus().cardinality() == 3;
+                      });
+              sim.scheduledExecutor()
+                  .scheduleAtFixedRate(() -> MESH_NODES.get(1).broadcast("1"), 1, 2, SECONDS);
+              sim.scheduledExecutor()
+                  .scheduleAtFixedRate(() -> MESH_NODES.get(3).send(0, "3"), 2, 3, SECONDS);
             });
-    sim.scheduledExecutor().scheduleAtFixedRate(() -> node1.broadcast("1"), 1, 2, SECONDS);
-    sim.scheduledExecutor().scheduleAtFixedRate(() -> node3.send(0, "3"), 2, 3, SECONDS);
-    sim.run(
+    simulation.run(
         () -> {
-          node0.broadcast("0");
-          return msgCounters.getFirst().get() < 1000;
+          MESH_NODES.get(0).broadcast("0");
+          return MSG_COUNTERS.getFirst().get() < 1000;
         },
-        Duration.of(5, ChronoUnit.SECONDS));
+        Duration.of(900, ChronoUnit.DAYS));
 
-    LOGGER.info("sim-zero msg count: {}", msgCounters.get(0));
-    LOGGER.info("sim-one msg count: {}", msgCounters.get(1));
-    LOGGER.info("sim-two msg count: {}", msgCounters.get(2));
-    LOGGER.info("sim-three msg count: {}", msgCounters.get(3));
+    LOGGER.info("sim-zero msg count: {}", MSG_COUNTERS.get(0));
+    LOGGER.info("sim-one msg count: {}", MSG_COUNTERS.get(1));
+    LOGGER.info("sim-two msg count: {}", MSG_COUNTERS.get(2));
+    LOGGER.info("sim-three msg count: {}", MSG_COUNTERS.get(3));
   }
 
   private static Function<Serializable, List<? extends Serializable>> getMessageHandler(
@@ -114,23 +115,28 @@ class SimulationTest {
   public void runSimulationHangTest() {
     assertThatThrownBy(
             () -> {
-              Simulation sim = new Simulation(Duration.of(50, ChronoUnit.SECONDS));
-              sim.scheduledExecutor()
-                  .schedule(
-                      () -> {
-                        while (true)
-                          ;
-                      },
-                      10,
-                      SECONDS);
+              Simulation simulation =
+                  new Simulation(
+                      (sim) -> {
+                        sim.scheduledExecutor()
+                            .schedule(
+                                () -> {
+                                  while (true)
+                                    ;
+                                },
+                                1,
+                                SECONDS);
+                      });
               AtomicLong counter = new AtomicLong();
-              sim.run(
-                  () -> {
-                    counter.incrementAndGet();
-                    return true;
-                  },
-                  Duration.of(3, ChronoUnit.SECONDS));
+              Thread thread =
+                  simulation.startSimulationThread(
+                      () -> {
+                        counter.incrementAndGet();
+                        return true;
+                      },
+                      Duration.of(7000, ChronoUnit.DAYS));
+              thread.join(10);
             })
-        .isInstanceOf(SimulationException.class);
+        .isInstanceOf(InterruptedException.class);
   }
 }

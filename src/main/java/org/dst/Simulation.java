@@ -20,16 +20,19 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.random.RandomGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,8 +50,9 @@ public class Simulation {
   private final DeterministicExecutor deterministicExecutor;
   private final ThreadFactory threadFactory;
   private final long seed;
+  private final Consumer<Simulation> initializer;
 
-  public Simulation(long seed, Duration stepDuration) {
+  public Simulation(long seed, Duration stepDuration, Consumer<Simulation> initializer) {
     clock = new SimulationClock(stepDuration, timeStep);
     this.random = new Random(seed);
     this.deterministicExecutor = new DeterministicExecutor(random);
@@ -56,10 +60,15 @@ public class Simulation {
     this.executorService = Executors.newThreadPerTaskExecutor(threadFactory);
     this.scheduledExecutor = new SimulationScheduledExecutor(clock, executorService);
     this.seed = seed;
+    this.initializer = initializer;
   }
 
-  public Simulation(Duration duration) {
-    this(new SecureRandom().nextLong(), duration);
+  public Simulation(long seed, Consumer<Simulation> initializer) {
+    this(seed, Duration.of(1, ChronoUnit.SECONDS), initializer);
+  }
+
+  public Simulation(Consumer<Simulation> initializer) {
+    this(new SecureRandom().nextLong(), Duration.of(1, ChronoUnit.SECONDS), initializer);
   }
 
   public ScheduledExecutorService scheduledExecutor() {
@@ -78,6 +87,11 @@ public class Simulation {
   }
 
   public Executor executor() {
+    return this.executorService;
+  }
+
+  // TODO is this useful it won't be wrapped in a virtual thread
+  public DeterministicExecutor deterministicExecutor() {
     return this.deterministicExecutor;
   }
 
@@ -113,7 +127,11 @@ public class Simulation {
     LOGGER.info("Running simulation for seed: {}", seed);
     Instant wallTime = Instant.now();
     Instant until = Instant.now(clock).plus(duration);
+    Future<?> init = executorService.submit(() -> initializer.accept(this));
     try {
+      while (!init.isDone()) {
+        this.tick();
+      }
       while (simStateChecker.advance() && until.isAfter(Instant.now(clock))) {
         this.tick();
       }
@@ -121,7 +139,11 @@ public class Simulation {
       throw new SimulationException(seed, e);
     }
     Duration runDuration = wallTime.until(Instant.now());
-    LOGGER.info("Simulation seed {} ran for {}s", seed, runDuration.getSeconds());
+    LOGGER.info(
+        "Simulation seed {} ran for {}s simulating {} ticks",
+        seed,
+        runDuration.getSeconds(),
+        timeStep);
   }
 
   public Thread startSimulationThread(SimulationStateChecker simStateChecker, Duration duration) {

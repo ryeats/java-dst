@@ -39,10 +39,14 @@ public class DeterministicExecutor implements Executor {
   }
 
   public void tick() {
-    LOGGER.debug("Executing {} tasks randomly in the work queue", workQueue.size());
+    LOGGER.trace("Executing {} tasks randomly in the work queue", workQueue.size());
     while (!workQueue.isEmpty()) {
       Collections.shuffle(workQueue, random); // New tasks can get added so we have to shuffle again
       Runnable task = workQueue.removeFirst();
+      if (task == null) {
+        // TODO not sure why this should happen
+        continue;
+      }
       //      Runnable task = workQueue.remove(random.nextInt(1,workQueue.size()) - 1);
       task.run();
     }

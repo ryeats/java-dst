@@ -15,6 +15,7 @@
  */
 package org.dst;
 
+import java.lang.invoke.MethodHandles;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -26,27 +27,46 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.random.RandomGenerator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SimulationTaskScheduler implements SimulationStateChecker {
+  private static final Logger LOGGER =
+      LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   protected List<Stoppable> chaosAgents = new ArrayList<>();
   protected List<Supplier<RunnableFuture<?>>> testTaskSuppliers = new ArrayList<>();
   protected List<Future<?>> runningTestTasks = new ArrayList<>();
+  protected Duration startDelay = null;
+  protected Duration quiescencePeriod = null;
 
   public void schedule(
       RandomGenerator rand, ScheduledExecutorService scheduledExecutor, Duration duration) {
-    scheduleTestTasks(rand, scheduledExecutor, duration);
-    scheduleChaos(rand, scheduledExecutor, duration);
+    if (startDelay == null) {
+      startDelay = duration.dividedBy(10);
+    }
+    if (quiescencePeriod == null) {
+      quiescencePeriod = duration.dividedBy(10);
+    }
+    Duration scheuleDuration = duration.minus(quiescencePeriod).minus(startDelay);
+    scheduleTestTasks(rand, scheduledExecutor, scheuleDuration);
+    scheduleChaos(rand, scheduledExecutor, duration.minus(scheuleDuration));
   }
 
   protected void scheduleTestTasks(
       RandomGenerator rand, ScheduledExecutorService scheduledExecutor, Duration duration) {
+    //    for (int driverCount = testTaskSuppliers.size(); driverCount > 0; driverCount--) {
     for (int driverCount = rand.nextInt(testTaskSuppliers.size()); driverCount > 0; driverCount--) {
-      RunnableFuture<?> driver =
-          testTaskSuppliers.get(rand.nextInt(testTaskSuppliers.size())).get();
-      // Uniform random distribution of test events over the duration
-      scheduledExecutor.schedule(driver, rand.nextLong(duration.toNanos()), TimeUnit.NANOSECONDS);
-      runningTestTasks.add(driver);
+      Supplier<RunnableFuture<?>> driverSupplier =
+          testTaskSuppliers.get(rand.nextInt(testTaskSuppliers.size()));
+      // TODO support rate and distribution type parameters
+      for (long i = rand.nextLong(duration.toMillis()); i > 0; i--) {
+        RunnableFuture<?> driver = driverSupplier.get();
+        scheduledExecutor.schedule(
+            driver, startDelay.toNanos() + rand.nextLong(duration.toNanos()), TimeUnit.NANOSECONDS);
+        runningTestTasks.add(driver);
+      }
     }
+    LOGGER.info("Scheduled {} tasks to driver the simulation", runningTestTasks.size());
   }
 
   protected void scheduleChaos(
@@ -56,9 +76,11 @@ public class SimulationTaskScheduler implements SimulationStateChecker {
       Stoppable chaos = copy.remove(rand.nextInt(copy.size()));
       Duration chaosDuration = duration.minusNanos(rand.nextLong(duration.toNanos()));
       long delay = rand.nextLong(duration.minus(chaosDuration).toNanos());
-      scheduledExecutor.schedule(chaos.start, delay, TimeUnit.NANOSECONDS);
+      scheduledExecutor.schedule(chaos.start, startDelay.toNanos() + delay, TimeUnit.NANOSECONDS);
       scheduledExecutor.schedule(
-          chaos.stop, chaosDuration.plus(delay, ChronoUnit.NANOS).toNanos(), TimeUnit.NANOSECONDS);
+          chaos.stop,
+          chaosDuration.plus(delay, ChronoUnit.NANOS).plus(startDelay).toNanos(),
+          TimeUnit.NANOSECONDS);
     }
   }
 
@@ -75,11 +97,18 @@ public class SimulationTaskScheduler implements SimulationStateChecker {
     return incompleteTestTasks();
   }
 
-  public boolean incompleteTestTasks()
-  {
+  public boolean incompleteTestTasks() {
     runningTestTasks = runningTestTasks.stream().filter(Predicate.not(Future::isDone)).toList();
     return !runningTestTasks.isEmpty();
   }
 
   protected record Stoppable(Runnable start, Runnable stop) {}
+
+  public void setStartDelay(Duration startDelay) {
+    this.startDelay = startDelay;
+  }
+
+  public void setQuiescencePeriod(Duration quiescencePeriod) {
+    this.quiescencePeriod = quiescencePeriod;
+  }
 }
