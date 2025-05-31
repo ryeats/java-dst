@@ -18,49 +18,76 @@ package org.dst;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.random.RandomGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DeterministicExecutor implements Executor {
+public class DeterministicExecutor implements Executor, AutoCloseable {
   private static final Logger LOGGER =
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private final RandomGenerator random;
-  private static final ArrayList<Runnable> workQueue = new ArrayList<>();
+  private final List<Runnable> workQueue = new ArrayList<>();
+  private final ExecutorService singleThread = Executors.newSingleThreadExecutor();
+  private int maxExecutions = 100;
+  private int timeout = 5;
 
   public DeterministicExecutor(RandomGenerator random) {
     this.random = random;
   }
 
   @Override
-  public void execute(Runnable runnableToWrap) {
-    workQueue.add(runnableToWrap);
+  public void execute(Runnable runnable) {
+    //    System.out.println("Calling execute from "+ Thread.currentThread());
+    singleThread.submit(() -> workQueue.add(runnable));
   }
 
   public void tick() {
-    LOGGER.trace("Executing {} tasks randomly in the work queue", workQueue.size());
-    while (!workQueue.isEmpty()) {
-      Collections.shuffle(workQueue, random); // New tasks can get added so we have to shuffle again
-      Runnable task = workQueue.removeFirst();
-      if (task == null) {
-        // TODO not sure why this should happen
-        continue;
+    try {
+      singleThread.submit(() -> this.internalTick(true)).get(timeout, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void internalTick(boolean shuffle) {
+    LOGGER.trace("Executing {} tasks in the work queue shuffle:{}", workQueue.size(), shuffle);
+    for (int count = 0; !workQueue.isEmpty() && count < maxExecutions; count++) {
+      if (shuffle) {
+        Collections.shuffle(workQueue, random);
       }
-      //      Runnable task = workQueue.remove(random.nextInt(1,workQueue.size()) - 1);
+      Runnable task = workQueue.removeFirst();
+      //            Runnable task = workQueue.remove(random.nextInt(1,workQueue.size()) - 1);
       task.run();
     }
   }
 
   public void runInCurrentQueueOrder() {
-    LOGGER.debug("Executing {} tasks in the work queue", workQueue.size());
-    while (!workQueue.isEmpty()) {
-      Runnable task = workQueue.removeFirst();
-      task.run();
+    try {
+      singleThread.submit(() -> this.internalTick(false)).get(timeout, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 
   public int queueSize() {
     return workQueue.size();
+  }
+
+  @Override
+  public void close() {
+    singleThread.close();
+  }
+
+  public void setMaxExecutions(int maxExecutions) {
+    this.maxExecutions = maxExecutions;
+  }
+
+  public void setTimeout(int seconds) {
+    this.timeout = seconds;
   }
 }

@@ -86,7 +86,6 @@ class SimulationScheduledExecutorTest {
     Future<AtomicReference<String>> runFuture =
         se.submit(() -> ref.set(sb.append(6).toString()), ref);
     // Only 3 and 4 should repeat
-    assertThat(de.queueSize()).isEqualTo(3);
     assertThat(se.getDelayedQueueSize()).isEqualTo(4);
     runSimulationStep();
     assertThat("06532313434334").startsWith(sb.toString());

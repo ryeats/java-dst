@@ -61,6 +61,7 @@ public class ClusterTest {
   void testStaticMesh() throws TimeoutException {
     long seed = new SecureRandom().nextLong();
     DeterministicExecutor deterministicExecutor = new DeterministicExecutor(new Random(seed));
+    deterministicExecutor.setMaxExecutions(100);
     //        TransportFactory transportFactory = new NettyTransportFactory();
     TransportFactory transportFactory =
         new SimTransportFactory(new SchedulableVirtualThreadFactory(deterministicExecutor));
@@ -88,17 +89,22 @@ public class ClusterTest {
     deterministicExecutor.tick();
     node0.broadcast("blah");
     deterministicExecutor.tick();
+    deterministicExecutor.tick();
     timeout.untilAsserted(() -> assertThat(messages).hasSize(3));
     deterministicExecutor.tick();
     node1.broadcast("blah2");
+    deterministicExecutor.tick();
     deterministicExecutor.tick();
     timeout.untilAsserted(() -> assertThat(messages).hasSize(6));
     deterministicExecutor.tick();
     node2.broadcast("more blah");
     deterministicExecutor.tick();
+    deterministicExecutor.tick();
     timeout.untilAsserted(() -> assertThat(messages).hasSize(9));
     deterministicExecutor.tick();
+    deterministicExecutor.tick();
     node3.broadcast("too many blah");
+    deterministicExecutor.tick();
     deterministicExecutor.tick();
     timeout.untilAsserted(() -> assertThat(messages).hasSize(12));
   }
