@@ -157,7 +157,7 @@ public class SimulationScheduledExecutor extends AbstractExecutorService
   }
 
   protected void remove(RunnableScheduledFuture<?> future) {
-    throw new UnsupportedOperationException("invokeAll not supported yet");
+    throw new UnsupportedOperationException("remove not supported yet");
   }
 
   private Instant triggerTime(long delay, TimeUnit unit) {
