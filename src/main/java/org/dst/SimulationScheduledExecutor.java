@@ -35,6 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+// TODO is this needed anymore??
 public class SimulationScheduledExecutor extends AbstractExecutorService
     implements ScheduledExecutorService {
   private static final long MAX_NANOS = (Long.MAX_VALUE >>> 1) - 1;

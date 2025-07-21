@@ -19,17 +19,40 @@
     </properties>
 
     <dependencies>
+        <!-- logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
 
+        <!-- agent -->
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm</artifactId>
+            <version>9.8</version>
+        </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-commons</artifactId>
+            <version>9.8</version>
+        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.ow2.asm</groupId>-->
+<!--            <artifactId>asm-tree</artifactId>-->
+<!--            <version>9.8</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>org.ow2.asm</groupId>-->
+<!--            <artifactId>asm-util</artifactId>-->
+<!--            <version>9.8</version>-->
+<!--        </dependency>-->
+
         <!-- Test Dependencies -->
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
-            <version>4.2.0.Final</version>
+            <version>4.2.2.Final</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -41,7 +64,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.12.2</version>
+            <version>5.13.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -59,7 +82,7 @@
         <dependency>
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5</artifactId>
-            <version>1.4.0</version>
+            <version>1.4.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -165,6 +188,21 @@
                     </ruleSet>
                 </configuration>
             </plugin>
+            <!-- Add MANIFEST.MF entry for agent -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Premain-Class>org.dst.SimulationInstrumentationAgent</Premain-Class>
+                            <Can-Redefine-Classes>true</Can-Redefine-Classes>
+                            <Can-Retransform-Classes>true</Can-Retransform-Classes>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -176,6 +214,7 @@
                         --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
                         -Dio.netty.tryReflectionSetAccessible=true
                     </argLine>
+<!--                <argLine>-javaagent:${project.build.directory}/${project.artifactId}-${project.version}.jar</argLine>-->
                     <systemPropertyVariables>
                         <org.slf4j.simpleLogger.defaultLogLevel>info</org.slf4j.simpleLogger.defaultLogLevel>
                     </systemPropertyVariables>

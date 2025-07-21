@@ -46,9 +46,9 @@ class SimulationScheduledExecutorTest {
 
   @BeforeEach
   public void setup() {
-    step = new AtomicLong();
+    step = SimulationTime.TIME;
     sb = new StringBuffer();
-    clock = new SimulationClock(step);
+    clock = new SimulationClock(SimulationTime::onInstantNow);
     RandomGenerator random = new Random(654321L);
     de = new DeterministicExecutor(random);
     tf = new SchedulableVirtualThreadFactory(de);
@@ -105,7 +105,7 @@ class SimulationScheduledExecutorTest {
   }
 
   public void runSimulationStep() throws TimeoutException {
-    long time = clock.tick();
+    long time = step.addAndGet(1000);
     se.tick();
     de.tick();
     LOGGER.info(

@@ -41,7 +41,7 @@ public class Simulation {
   private static final Logger LOGGER =
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  private final AtomicLong timeStep = new AtomicLong();
+  private final AtomicLong timeStep = SimulationTime.TIME;
   private final RandomGenerator random;
   private final Clock clock;
   private final SimulationScheduledExecutor scheduledExecutor;
@@ -53,7 +53,7 @@ public class Simulation {
   private final Consumer<Simulation> initializer;
 
   public Simulation(long seed, Duration stepDuration, Consumer<Simulation> initializer) {
-    clock = new SimulationClock(stepDuration, timeStep);
+    clock = new SimulationClock(SimulationTime::onInstantNow);
     this.random = new Random(seed);
     this.deterministicExecutor = new DeterministicExecutor(random);
     this.threadFactory = new SchedulableVirtualThreadFactory(deterministicExecutor);

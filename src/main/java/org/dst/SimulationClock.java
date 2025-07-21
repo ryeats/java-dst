@@ -16,10 +16,8 @@
 package org.dst;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 public class SimulationClock extends Clock {
@@ -28,38 +26,13 @@ public class SimulationClock extends Clock {
 
   private final ZoneId zone;
 
-  private AtomicLong step;
-
-  public SimulationClock() {
-    this(Instant.now(), Duration.ofSeconds(1), new AtomicLong());
-  }
-
-  public SimulationClock(final AtomicLong step) {
-    this(Instant.now(), Duration.ofSeconds(1), step);
-  }
-
-  public SimulationClock(Duration duration, final AtomicLong step) {
-    this(Instant.now(), duration, step);
-  }
-
-  public SimulationClock(Instant startTime, Duration duration, final AtomicLong step) {
-    this(() -> startTime.plus(duration.multipliedBy(step.get())));
-    this.step = step;
-  }
-
   public SimulationClock(Supplier<Instant> supplier) {
     this(supplier, ZoneId.of("Z"));
-    this.step = new AtomicLong();
   }
 
   public SimulationClock(Supplier<Instant> supplier, ZoneId zone) {
     this.supplier = supplier;
     this.zone = zone;
-    this.step = new AtomicLong();
-  }
-
-  public long tick() {
-    return step.incrementAndGet();
   }
 
   @Override
