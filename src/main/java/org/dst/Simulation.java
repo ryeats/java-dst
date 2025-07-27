@@ -51,24 +51,34 @@ public class Simulation {
   private final ThreadFactory threadFactory;
   private final long seed;
   private final Consumer<Simulation> initializer;
+  private final long stepDuration;
 
-  public Simulation(long seed, Duration stepDuration, Consumer<Simulation> initializer) {
+  public Simulation(
+      long seed,
+      String base64ExecFingerprint,
+      Duration stepDuration,
+      Consumer<Simulation> initializer) {
     clock = new SimulationClock(SimulationTime::onInstantNow);
     this.random = new Random(seed);
-    this.deterministicExecutor = new DeterministicExecutor(random);
+    this.deterministicExecutor = new DeterministicExecutor(random, base64ExecFingerprint);
     this.threadFactory = new SchedulableVirtualThreadFactory(deterministicExecutor);
     this.executorService = Executors.newThreadPerTaskExecutor(threadFactory);
     this.scheduledExecutor = new SimulationScheduledExecutor(clock, executorService);
     this.seed = seed;
     this.initializer = initializer;
+    this.stepDuration = stepDuration.toMillis();
+  }
+
+  public Simulation(long seed, String base64ExecFingerprint, Consumer<Simulation> initializer) {
+    this(seed, base64ExecFingerprint, Duration.of(1, ChronoUnit.SECONDS), initializer);
   }
 
   public Simulation(long seed, Consumer<Simulation> initializer) {
-    this(seed, Duration.of(1, ChronoUnit.SECONDS), initializer);
+    this(seed, null, initializer);
   }
 
   public Simulation(Consumer<Simulation> initializer) {
-    this(new SecureRandom().nextLong(), Duration.of(1, ChronoUnit.SECONDS), initializer);
+    this(new SecureRandom().nextLong(), null, Duration.of(1, ChronoUnit.SECONDS), initializer);
   }
 
   public ScheduledExecutorService scheduledExecutor() {
@@ -112,7 +122,7 @@ public class Simulation {
   }
 
   public void tick() throws TimeoutException {
-    timeStep.incrementAndGet();
+    timeStep.addAndGet(stepDuration);
     scheduledExecutors.forEach(SimulationScheduledExecutor::tick);
     scheduledExecutor.tick();
     deterministicExecutor.tick();
@@ -152,5 +162,9 @@ public class Simulation {
 
   public long getSeed() {
     return seed;
+  }
+
+  public String getExecutionFingerprint() {
+    return deterministicExecutor.getExecutionFingerprint();
   }
 }

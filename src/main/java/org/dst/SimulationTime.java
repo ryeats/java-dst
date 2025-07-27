@@ -27,7 +27,7 @@ public class SimulationTime {
     if (SimulationTime.class.getClassLoader() == null) {
       return new AtomicLong();
     }
-    // otherwise, this is the system classloader instance, so we need to get TIME from the boot
+    // otherwise, this is the system classloader instance, so try to get TIME from the boot instance
     // classloader one.
     try {
       Class<?> bootClazz = Class.forName(SimulationTime.class.getCanonicalName(), true, null);

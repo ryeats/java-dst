@@ -15,8 +15,12 @@
  */
 package org.dst;
 
+import java.io.ByteArrayOutputStream;
 import java.lang.invoke.MethodHandles;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -33,11 +37,25 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
   private final RandomGenerator random;
   private final List<Runnable> workQueue = new ArrayList<>();
   private final ExecutorService singleThread = Executors.newSingleThreadExecutor();
-  private int maxExecutions = 100;
+  private final ByteBuffer execFingerprint;
+  private int maxExecutions = 256;
   private int timeout = 5;
+  private final ByteArrayOutputStream execStats = new ByteArrayOutputStream();
 
   public DeterministicExecutor(RandomGenerator random) {
     this.random = random;
+    this.execFingerprint = null;
+  }
+
+  public DeterministicExecutor(RandomGenerator random, String base64ExecFingerprint) {
+    this.random = random;
+    if (base64ExecFingerprint != null) {
+      this.execFingerprint =
+          ByteBuffer.wrap(
+              Base64.getDecoder().decode(base64ExecFingerprint.getBytes(StandardCharsets.UTF_8)));
+    } else {
+      this.execFingerprint = null;
+    }
   }
 
   @Override
@@ -56,13 +74,20 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
 
   private void internalTick(boolean shuffle) {
     LOGGER.trace("Executing {} tasks in the work queue shuffle:{}", workQueue.size(), shuffle);
-    for (int count = 0; !workQueue.isEmpty() && count < maxExecutions; count++) {
-      if (shuffle) {
-        Collections.shuffle(workQueue, random);
+    int count = 0;
+    while (!workQueue.isEmpty() && count < maxExecutions) {
+      removeWorkTask(shuffle).run();
+      count++;
+    }
+
+    if (LOGGER.isDebugEnabled()) {
+      execStats.write(count);
+      if (execFingerprint != null && execFingerprint.hasRemaining()) {
+        if (count != execFingerprint.get()) {
+          // TODO how to expose enough detail to debug?
+          LOGGER.debug("Non-deterministic");
+        }
       }
-      Runnable task = workQueue.removeFirst();
-      //            Runnable task = workQueue.remove(random.nextInt(1,workQueue.size()) - 1);
-      task.run();
     }
   }
 
@@ -72,6 +97,13 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private Runnable removeWorkTask(boolean shuffle) {
+    if (shuffle) {
+      Collections.shuffle(workQueue, random);
+    }
+    return workQueue.removeFirst();
   }
 
   public int queueSize() {
@@ -89,5 +121,11 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
 
   public void setTimeout(int seconds) {
     this.timeout = seconds;
+  }
+
+  public String getExecutionFingerprint() {
+    String base64Fingerprint = Base64.getEncoder().encodeToString(execStats.toByteArray());
+    LOGGER.debug("Simulation execution fingerprint: {}", base64Fingerprint);
+    return base64Fingerprint;
   }
 }
