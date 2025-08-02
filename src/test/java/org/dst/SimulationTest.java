@@ -85,13 +85,12 @@ class SimulationTest {
                   .scheduleAtFixedRate(() -> MESH_NODES.get(1).broadcast("1"), 1, 2, SECONDS);
               sim.scheduledExecutor()
                   .scheduleAtFixedRate(() -> MESH_NODES.get(3).send(0, "3"), 2, 3, SECONDS);
+              return () -> {
+                MESH_NODES.get(0).broadcast("0");
+                return MSG_COUNTERS.getFirst().get() < 1000;
+              };
             });
-    simulation.run(
-        () -> {
-          MESH_NODES.get(0).broadcast("0");
-          return MSG_COUNTERS.getFirst().get() < 1000;
-        },
-        Duration.of(900, ChronoUnit.DAYS));
+    simulation.run(Duration.of(900, ChronoUnit.DAYS));
 
     LOGGER.info("sim-zero msg count: {}", MSG_COUNTERS.get(0));
     LOGGER.info("sim-one msg count: {}", MSG_COUNTERS.get(1));
@@ -126,15 +125,10 @@ class SimulationTest {
                                 },
                                 1,
                                 SECONDS);
+                        return () -> true;
                       });
-              AtomicLong counter = new AtomicLong();
-              Thread thread =
-                  simulation.startSimulationThread(
-                      () -> {
-                        counter.incrementAndGet();
-                        return true;
-                      },
-                      Duration.of(7000, ChronoUnit.DAYS));
+
+              Thread thread = simulation.startSimulationThread(Duration.of(7000, ChronoUnit.DAYS));
               thread.join(10);
             })
         .isInstanceOf(InterruptedException.class);

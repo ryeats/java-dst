@@ -32,7 +32,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 import java.util.random.RandomGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,42 +41,39 @@ public class Simulation {
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   private final AtomicLong timeStep = SimulationTime.TIME;
-  private final RandomGenerator random;
   private final Clock clock;
-  private final SimulationScheduledExecutor scheduledExecutor;
-  private final ExecutorService executorService;
-  private final List<SimulationScheduledExecutor> scheduledExecutors = new ArrayList<>();
-  private final DeterministicExecutor deterministicExecutor;
-  private final ThreadFactory threadFactory;
   private final long seed;
-  private final Consumer<Simulation> initializer;
+  private final String base64ExecFingerprint;
   private final long stepDuration;
+  private final SimulationInitializer initializer;
+  private final List<SimulationScheduledExecutor> scheduledExecutors = new ArrayList<>();
+  private RandomGenerator random;
+  private SimulationScheduledExecutor scheduledExecutor;
+  private ExecutorService executorService;
+  private DeterministicExecutor deterministicExecutor;
+  private ThreadFactory threadFactory;
 
   public Simulation(
       long seed,
       String base64ExecFingerprint,
       Duration stepDuration,
-      Consumer<Simulation> initializer) {
-    clock = new SimulationClock(SimulationTime::onInstantNow);
-    this.random = new Random(seed);
-    this.deterministicExecutor = new DeterministicExecutor(random, base64ExecFingerprint);
-    this.threadFactory = new SchedulableVirtualThreadFactory(deterministicExecutor);
-    this.executorService = Executors.newThreadPerTaskExecutor(threadFactory);
-    this.scheduledExecutor = new SimulationScheduledExecutor(clock, executorService);
+      SimulationInitializer initializer) {
     this.seed = seed;
-    this.initializer = initializer;
     this.stepDuration = stepDuration.toMillis();
+    this.base64ExecFingerprint = base64ExecFingerprint;
+    this.initializer = initializer;
+    this.clock = new SimulationClock(SimulationTime::onInstantNow);
   }
 
-  public Simulation(long seed, String base64ExecFingerprint, Consumer<Simulation> initializer) {
+  public Simulation(long seed, String base64ExecFingerprint, SimulationInitializer initializer) {
     this(seed, base64ExecFingerprint, Duration.of(1, ChronoUnit.SECONDS), initializer);
   }
 
-  public Simulation(long seed, Consumer<Simulation> initializer) {
+  public Simulation(long seed, SimulationInitializer initializer) {
     this(seed, null, initializer);
   }
 
-  public Simulation(Consumer<Simulation> initializer) {
+  public Simulation(SimulationInitializer initializer) {
     this(new SecureRandom().nextLong(), null, Duration.of(1, ChronoUnit.SECONDS), initializer);
   }
 
@@ -109,6 +105,10 @@ public class Simulation {
     return random;
   }
 
+  public RandomGenerator newRandom() {
+    return new Random(seed);
+  }
+
   public ThreadFactory threadFactory() {
     return this.threadFactory;
   }
@@ -133,15 +133,23 @@ public class Simulation {
     deterministicExecutor.runInCurrentQueueOrder();
   }
 
-  public void run(SimulationStateChecker simStateChecker, Duration duration) {
+  // TODO debatable if duration is useful parameter and shouldn't just be handled inside the
+  // simStateChecker
+  public void run(Duration duration) {
     LOGGER.info("Running simulation for seed: {}", seed);
+    this.random = new Random(seed);
+    this.deterministicExecutor = new DeterministicExecutor(random, base64ExecFingerprint);
+    this.threadFactory = new SchedulableVirtualThreadFactory(deterministicExecutor);
+    this.executorService = Executors.newThreadPerTaskExecutor(threadFactory);
+    this.scheduledExecutor = new SimulationScheduledExecutor(clock, executorService);
     Instant wallTime = Instant.now();
     Instant until = Instant.now(clock).plus(duration);
-    Future<?> init = executorService.submit(() -> initializer.accept(this));
+    Future<SimulationStateChecker> init = executorService.submit(() -> initializer.init(this));
     try {
       while (!init.isDone()) {
         this.tick();
       }
+      SimulationStateChecker simStateChecker = init.get();
       while (simStateChecker.advance() && until.isAfter(Instant.now(clock))) {
         this.tick();
       }
@@ -156,8 +164,9 @@ public class Simulation {
         timeStep);
   }
 
-  public Thread startSimulationThread(SimulationStateChecker simStateChecker, Duration duration) {
-    return Thread.ofPlatform().name("simulation").start(() -> run(simStateChecker, duration));
+  // TODO do we still need this for the timeout?
+  public Thread startSimulationThread(Duration duration) {
+    return Thread.ofPlatform().name("simulation").start(() -> run(duration));
   }
 
   public long getSeed() {

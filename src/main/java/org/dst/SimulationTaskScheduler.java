@@ -20,7 +20,9 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -88,8 +90,20 @@ public class SimulationTaskScheduler implements SimulationStateChecker {
     this.chaosAgents.add(new Stoppable(start, stop));
   }
 
+  public void addChaosAgent(Runnable toggle) {
+    this.chaosAgents.add(new Stoppable(toggle, toggle));
+  }
+
   public void addSimulationTestTaskSupplier(Supplier<RunnableFuture<?>> testTaskSupplier) {
     this.testTaskSuppliers.add(testTaskSupplier);
+  }
+
+  public void addSimulationTestTaskSupplier(Callable<?> testTaskSupplier) {
+    this.testTaskSuppliers.add(() -> new FutureTask<>(testTaskSupplier));
+  }
+
+  public void addSimulationTestTaskSupplier(Runnable testTaskSupplier) {
+    this.testTaskSuppliers.add(() -> new FutureTask<>(testTaskSupplier, true));
   }
 
   @Override

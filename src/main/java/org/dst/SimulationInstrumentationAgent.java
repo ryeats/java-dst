@@ -66,7 +66,7 @@ public class SimulationInstrumentationAgent implements ClassFileTransformer {
 
     inst.addTransformer(new SimulationInstrumentationAgent(), true);
     for (Class<?> clazz : inst.getAllLoadedClasses()) {
-      if (inst.isModifiableClass(clazz)) {
+      if (inst.isModifiableClass(clazz) && !clazz.getCanonicalName().startsWith("org.dst")) {
         try {
           inst.retransformClasses(clazz);
         } catch (Exception ignored) {
