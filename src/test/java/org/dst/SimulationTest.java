@@ -23,8 +23,6 @@ import io.netty.channel.local.LocalAddress;
 import java.io.Serializable;
 import java.lang.invoke.MethodHandles;
 import java.net.SocketAddress;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -90,7 +88,7 @@ class SimulationTest {
                 return MSG_COUNTERS.getFirst().get() < 1000;
               };
             });
-    simulation.run(Duration.of(900, ChronoUnit.DAYS));
+    simulation.run();
 
     LOGGER.info("sim-zero msg count: {}", MSG_COUNTERS.get(0));
     LOGGER.info("sim-one msg count: {}", MSG_COUNTERS.get(1));
@@ -128,7 +126,7 @@ class SimulationTest {
                         return () -> true;
                       });
 
-              Thread thread = simulation.startSimulationThread(Duration.of(7000, ChronoUnit.DAYS));
+              Thread thread = simulation.startSimulationThread();
               thread.join(10);
             })
         .isInstanceOf(InterruptedException.class);

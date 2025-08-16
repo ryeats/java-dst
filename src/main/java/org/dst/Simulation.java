@@ -135,7 +135,7 @@ public class Simulation {
 
   // TODO debatable if duration is useful parameter and shouldn't just be handled inside the
   // simStateChecker
-  public void run(Duration duration) {
+  public void run() {
     LOGGER.info("Running simulation for seed: {}", seed);
     this.random = new Random(seed);
     this.deterministicExecutor = new DeterministicExecutor(random, base64ExecFingerprint);
@@ -143,14 +143,13 @@ public class Simulation {
     this.executorService = Executors.newThreadPerTaskExecutor(threadFactory);
     this.scheduledExecutor = new SimulationScheduledExecutor(clock, executorService);
     Instant wallTime = Instant.now();
-    Instant until = Instant.now(clock).plus(duration);
     Future<SimulationStateChecker> init = executorService.submit(() -> initializer.init(this));
     try {
       while (!init.isDone()) {
         this.tick();
       }
       SimulationStateChecker simStateChecker = init.get();
-      while (simStateChecker.advance() && until.isAfter(Instant.now(clock))) {
+      while (simStateChecker.advance()) {
         this.tick();
       }
     } catch (Exception e) {
@@ -165,8 +164,8 @@ public class Simulation {
   }
 
   // TODO do we still need this for the timeout?
-  public Thread startSimulationThread(Duration duration) {
-    return Thread.ofPlatform().name("simulation").start(() -> run(duration));
+  public Thread startSimulationThread() {
+    return Thread.ofPlatform().name("simulation").start(this::run);
   }
 
   public long getSeed() {

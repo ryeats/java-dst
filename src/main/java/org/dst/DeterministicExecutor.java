@@ -80,6 +80,7 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
       count++;
     }
 
+    // TODO this doesn't catch randomness issues or two tasks being swaped between ticks
     if (LOGGER.isDebugEnabled()) {
       execStats.write(count);
       if (execFingerprint != null && execFingerprint.hasRemaining()) {

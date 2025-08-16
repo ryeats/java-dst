@@ -32,7 +32,7 @@ import java.util.random.RandomGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SimulationTaskScheduler implements SimulationStateChecker {
+public class SimulationScheduler implements SimulationStateChecker {
   private static final Logger LOGGER =
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   protected List<Stoppable> chaosAgents = new ArrayList<>();
