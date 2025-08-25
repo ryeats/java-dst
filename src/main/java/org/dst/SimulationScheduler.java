@@ -16,7 +16,9 @@
 package org.dst;
 
 import java.lang.invoke.MethodHandles;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,15 +42,22 @@ public class SimulationScheduler implements SimulationStateChecker {
   protected List<Future<?>> runningTestTasks = new ArrayList<>();
   protected Duration startDelay = null;
   protected Duration quiescencePeriod = null;
+  protected Clock clock;
+  protected Instant end;
 
   public void schedule(
-      RandomGenerator rand, ScheduledExecutorService scheduledExecutor, Duration duration) {
+      Clock clock,
+      RandomGenerator rand,
+      ScheduledExecutorService scheduledExecutor,
+      Duration duration) {
     if (startDelay == null) {
       startDelay = duration.dividedBy(10);
     }
     if (quiescencePeriod == null) {
       quiescencePeriod = duration.dividedBy(10);
     }
+    this.clock = clock;
+    this.end = clock.instant().plus(duration);
     Duration scheuleDuration = duration.minus(quiescencePeriod).minus(startDelay);
     scheduleTestTasks(rand, scheduledExecutor, scheuleDuration);
     scheduleChaos(rand, scheduledExecutor, duration.minus(scheuleDuration));
@@ -108,12 +117,18 @@ public class SimulationScheduler implements SimulationStateChecker {
 
   @Override
   public boolean advance() {
-    return incompleteTestTasks();
+    return incompleteTestTasks() && clock.instant().isBefore(end);
   }
 
   public boolean incompleteTestTasks() {
-    runningTestTasks = runningTestTasks.stream().filter(Predicate.not(Future::isDone)).toList();
-    return !runningTestTasks.isEmpty();
+    List<Future<?>> failedTasks =
+        runningTestTasks.stream().filter((f) -> f.state().equals(Future.State.FAILED)).toList();
+    if (!failedTasks.isEmpty()) {
+      return false;
+    }
+    List<Future<?>> remainingTasks =
+        runningTestTasks.stream().filter(Predicate.not(Future::isDone)).toList();
+    return !remainingTasks.isEmpty();
   }
 
   protected record Stoppable(Runnable start, Runnable stop) {}

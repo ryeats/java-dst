@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class SimulationTest {
+public class SimulationTest {
   private static final Logger LOGGER =
       LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final List<AtomicLong> MSG_COUNTERS = new ArrayList<>();
@@ -54,41 +54,40 @@ class SimulationTest {
     MSG_COUNTERS.add(new AtomicLong());
     MSG_COUNTERS.add(new AtomicLong());
     MSG_COUNTERS.add(new AtomicLong());
-    Simulation simulation =
-        new Simulation(
-            (sim) -> {
-              TransportFactory transportFactory = new SimTransportFactory(sim.threadFactory());
-              MESH_NODES.add(
-                  new StaticMesh(
-                      transportFactory, getMessageHandler(0, MSG_COUNTERS.get(0)), 0, CLUSTER));
-              MESH_NODES.add(
-                  new StaticMesh(
-                      transportFactory, getMessageHandler(1, MSG_COUNTERS.get(1)), 1, CLUSTER));
-              MESH_NODES.add(
-                  new StaticMesh(
-                      transportFactory, getMessageHandler(2, MSG_COUNTERS.get(2)), 2, CLUSTER));
-              MESH_NODES.add(
-                  new StaticMesh(
-                      transportFactory, getMessageHandler(3, MSG_COUNTERS.get(3)), 3, CLUSTER));
-              MESH_NODES.forEach(StaticMesh::start);
+    Simulation simulation = new Simulation();
+    simulation.run(
+        (sim) -> {
+          TransportFactory transportFactory = new SimTransportFactory(sim.threadFactory());
+          MESH_NODES.add(
+              new StaticMesh(
+                  transportFactory, getMessageHandler(0, MSG_COUNTERS.get(0)), 0, CLUSTER));
+          MESH_NODES.add(
+              new StaticMesh(
+                  transportFactory, getMessageHandler(1, MSG_COUNTERS.get(1)), 1, CLUSTER));
+          MESH_NODES.add(
+              new StaticMesh(
+                  transportFactory, getMessageHandler(2, MSG_COUNTERS.get(2)), 2, CLUSTER));
+          MESH_NODES.add(
+              new StaticMesh(
+                  transportFactory, getMessageHandler(3, MSG_COUNTERS.get(3)), 3, CLUSTER));
+          MESH_NODES.forEach(StaticMesh::start);
 
-              await()
-                  .atMost(5, SECONDS)
-                  .until(
-                      () -> {
-                        MESH_NODES.forEach(StaticMesh::retryFailedConnections);
-                        return MESH_NODES.get(0).checkClusterStatus().cardinality() == 3;
-                      });
-              sim.scheduledExecutor()
-                  .scheduleAtFixedRate(() -> MESH_NODES.get(1).broadcast("1"), 1, 2, SECONDS);
-              sim.scheduledExecutor()
-                  .scheduleAtFixedRate(() -> MESH_NODES.get(3).send(0, "3"), 2, 3, SECONDS);
-              return () -> {
-                MESH_NODES.get(0).broadcast("0");
-                return MSG_COUNTERS.getFirst().get() < 1000;
-              };
-            });
-    simulation.run();
+          await()
+              .atMost(5, SECONDS)
+              .until(
+                  () -> {
+                    MESH_NODES.forEach(StaticMesh::retryFailedConnections);
+                    return MESH_NODES.get(0).checkClusterStatus().cardinality() == 3;
+                  });
+          sim.scheduledExecutor()
+              .scheduleAtFixedRate(() -> MESH_NODES.get(1).broadcast("1"), 1, 2, SECONDS);
+          sim.scheduledExecutor()
+              .scheduleAtFixedRate(() -> MESH_NODES.get(3).send(0, "3"), 2, 3, SECONDS);
+          return () -> {
+            MESH_NODES.get(0).broadcast("0");
+            return MSG_COUNTERS.getFirst().get() < 1000;
+          };
+        });
 
     LOGGER.info("sim-zero msg count: {}", MSG_COUNTERS.get(0));
     LOGGER.info("sim-one msg count: {}", MSG_COUNTERS.get(1));
@@ -112,8 +111,9 @@ class SimulationTest {
   public void runSimulationHangTest() {
     assertThatThrownBy(
             () -> {
-              Simulation simulation =
-                  new Simulation(
+              Simulation simulation = new Simulation();
+              Thread thread =
+                  simulation.startSimulationThread(
                       (sim) -> {
                         sim.scheduledExecutor()
                             .schedule(
@@ -126,7 +126,6 @@ class SimulationTest {
                         return () -> true;
                       });
 
-              Thread thread = simulation.startSimulationThread();
               thread.join(10);
             })
         .isInstanceOf(InterruptedException.class);

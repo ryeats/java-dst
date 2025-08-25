@@ -50,7 +50,9 @@ public class SimulationCounter implements SimulationStateChecker {
   }
 
   public void schedule() {
-    for (int driverCount = rand.nextInt(testTaskSuppliers.size()); driverCount > 0; driverCount--) {
+    for (int driverCount = rand.nextInt(1, testTaskSuppliers.size() + 1);
+        driverCount > 0;
+        driverCount--) {
       Supplier<RunnableFuture<?>> driverSupplier =
           testTaskSuppliers.get(rand.nextInt(testTaskSuppliers.size()));
       RunnableFuture<?> driver = driverSupplier.get();
@@ -82,12 +84,18 @@ public class SimulationCounter implements SimulationStateChecker {
       schedule();
     }
 
-    return incompleteTestTasks() && tickCount <= maxTickCount;
+    return incompleteTestTasks() || tickCount <= maxTickCount;
   }
 
   public boolean incompleteTestTasks() {
-    runningTestTasks = runningTestTasks.stream().filter(Predicate.not(Future::isDone)).toList();
-    return !runningTestTasks.isEmpty();
+    List<Future<?>> failedTasks =
+        runningTestTasks.stream().filter((f) -> f.state().equals(Future.State.FAILED)).toList();
+    if (!failedTasks.isEmpty()) {
+      return false;
+    }
+    List<Future<?>> remainingTasks =
+        runningTestTasks.stream().filter(Predicate.not(Future::isDone)).toList();
+    return !remainingTasks.isEmpty();
   }
 
   public void setStartDelay(int startDelay) {

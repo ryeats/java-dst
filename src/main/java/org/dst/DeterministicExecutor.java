@@ -66,7 +66,9 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
 
   public void tick() {
     try {
-      singleThread.submit(() -> this.internalTick(true)).get(timeout, TimeUnit.SECONDS);
+      // TODO timeout is annoying while debugging
+      singleThread.submit(() -> this.internalTick(true)).get();
+      //      singleThread.submit(() -> this.internalTick(true)).get(timeout, TimeUnit.SECONDS);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -75,6 +77,8 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
   private void internalTick(boolean shuffle) {
     LOGGER.trace("Executing {} tasks in the work queue shuffle:{}", workQueue.size(), shuffle);
     int count = 0;
+    // TODO get rid of maxExecutions change this so it randomly selects and executes a random number
+    // of the tasks instead of shuffling and executing all of them
     while (!workQueue.isEmpty() && count < maxExecutions) {
       removeWorkTask(shuffle).run();
       count++;
@@ -102,6 +106,7 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
 
   private Runnable removeWorkTask(boolean shuffle) {
     if (shuffle) {
+
       Collections.shuffle(workQueue, random);
     }
     return workQueue.removeFirst();

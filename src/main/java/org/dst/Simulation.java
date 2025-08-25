@@ -45,7 +45,6 @@ public class Simulation {
   private final long seed;
   private final String base64ExecFingerprint;
   private final long stepDuration;
-  private final SimulationInitializer initializer;
   private final List<SimulationScheduledExecutor> scheduledExecutors = new ArrayList<>();
   private RandomGenerator random;
   private SimulationScheduledExecutor scheduledExecutor;
@@ -53,28 +52,23 @@ public class Simulation {
   private DeterministicExecutor deterministicExecutor;
   private ThreadFactory threadFactory;
 
-  public Simulation(
-      long seed,
-      String base64ExecFingerprint,
-      Duration stepDuration,
-      SimulationInitializer initializer) {
+  public Simulation(long seed, String base64ExecFingerprint, Duration stepDuration) {
     this.seed = seed;
     this.stepDuration = stepDuration.toMillis();
     this.base64ExecFingerprint = base64ExecFingerprint;
-    this.initializer = initializer;
     this.clock = new SimulationClock(SimulationTime::onInstantNow);
   }
 
-  public Simulation(long seed, String base64ExecFingerprint, SimulationInitializer initializer) {
-    this(seed, base64ExecFingerprint, Duration.of(1, ChronoUnit.SECONDS), initializer);
+  public Simulation(long seed, String base64ExecFingerprint) {
+    this(seed, base64ExecFingerprint, Duration.of(1, ChronoUnit.SECONDS));
   }
 
-  public Simulation(long seed, SimulationInitializer initializer) {
-    this(seed, null, initializer);
+  public Simulation(long seed) {
+    this(seed, null);
   }
 
-  public Simulation(SimulationInitializer initializer) {
-    this(new SecureRandom().nextLong(), null, Duration.of(1, ChronoUnit.SECONDS), initializer);
+  public Simulation() {
+    this(new SecureRandom().nextLong(), null, Duration.of(1, ChronoUnit.SECONDS));
   }
 
   public ScheduledExecutorService scheduledExecutor() {
@@ -135,37 +129,45 @@ public class Simulation {
 
   // TODO debatable if duration is useful parameter and shouldn't just be handled inside the
   // simStateChecker
-  public void run() {
+  public void run(SimulationInitializer initializer) {
     LOGGER.info("Running simulation for seed: {}", seed);
     this.random = new Random(seed);
-    this.deterministicExecutor = new DeterministicExecutor(random, base64ExecFingerprint);
-    this.threadFactory = new SchedulableVirtualThreadFactory(deterministicExecutor);
-    this.executorService = Executors.newThreadPerTaskExecutor(threadFactory);
-    this.scheduledExecutor = new SimulationScheduledExecutor(clock, executorService);
-    Instant wallTime = Instant.now();
-    Future<SimulationStateChecker> init = executorService.submit(() -> initializer.init(this));
-    try {
-      while (!init.isDone()) {
-        this.tick();
+    try (DeterministicExecutor deterministicExecutor =
+        new DeterministicExecutor(random, base64ExecFingerprint)) {
+      this.deterministicExecutor = deterministicExecutor;
+      this.threadFactory = new SchedulableVirtualThreadFactory(deterministicExecutor);
+      this.executorService = Executors.newThreadPerTaskExecutor(threadFactory);
+      this.scheduledExecutor = new SimulationScheduledExecutor(clock, executorService);
+      Instant wallTime = Instant.now();
+      Future<SimulationStateChecker> init = executorService.submit(() -> initializer.init(this));
+      try {
+        while (!init.isDone()) {
+          this.tick();
+        }
+        SimulationStateChecker simStateChecker = init.get();
+        while (simStateChecker.advance()) {
+          this.tick();
+        }
+      } catch (Exception e) {
+        throw new SimulationException(seed, e);
       }
-      SimulationStateChecker simStateChecker = init.get();
-      while (simStateChecker.advance()) {
-        this.tick();
-      }
-    } catch (Exception e) {
-      throw new SimulationException(seed, e);
+      Duration runDuration = wallTime.until(Instant.now());
+      LOGGER.info(
+          "Simulation seed {} ran for {}s simulating {} ticks",
+          seed,
+          runDuration.getSeconds(),
+          timeStep);
     }
-    Duration runDuration = wallTime.until(Instant.now());
-    LOGGER.info(
-        "Simulation seed {} ran for {}s simulating {} ticks",
-        seed,
-        runDuration.getSeconds(),
-        timeStep);
   }
 
   // TODO do we still need this for the timeout?
-  public Thread startSimulationThread() {
-    return Thread.ofPlatform().name("simulation").start(this::run);
+  public Thread startSimulationThread(SimulationInitializer initializer) {
+    return Thread.ofPlatform()
+        .name("simulation")
+        .start(
+            () -> {
+              this.run(initializer);
+            });
   }
 
   public long getSeed() {
