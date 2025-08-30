@@ -19,8 +19,16 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
+import org.dst.Simulation;
+import org.dst.SimulationCheckerImpl;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -140,11 +148,11 @@ public class SimulationTestEngine implements TestEngine {
       listener.executionStarted(classDesc);
 
       Class<?> clazz = classDesc.getTestClass();
-      try {
-        Object instance = clazz.getDeclaredConstructor().newInstance();
-        invokeAnnotated(clazz, BeforeAll.class, instance);
+      try (Simulation sim = classDesc.getSimulation()) {
 
-        List<Method> testMethods = new ArrayList<>();
+        Object instance = clazz.getDeclaredConstructor().newInstance();
+
+        List<Supplier<RunnableFuture<?>>> testMethods = new ArrayList<>();
         for (Method method : clazz.getDeclaredMethods()) {
           if (method.isAnnotationPresent(SimulationTest.class)) {
             if (method.isAnnotationPresent(Disabled.class)) {
@@ -157,15 +165,33 @@ public class SimulationTestEngine implements TestEngine {
               listener.executionSkipped(disabledDescriptor, "Disabled");
               continue;
             }
-            testMethods.add(method);
+            testMethods.add(createTestSupplier(method, instance, classDesc, listener));
           }
         }
-        // TODO OR don't plan ahead just add tests as we go
-        for (Method testMethod : testMethods) {
-          executeTestMethod(testMethod, instance, classDesc, listener);
-        }
+        TestMethodScheduler testMethodScheduler =
+            new TestMethodScheduler(sim, classDesc.getSimulationTimeDuration());
+        sim.run(
+            (s) -> {
+              try {
+                invokeAnnotated(clazz, BeforeAll.class, instance);
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+              List<Future<?>> tests =
+                  testMethodScheduler.schedule(sim, testMethods, Collections.emptyList());
+              return new SimulationCheckerImpl(
+                  sim.clock(), classDesc.getSimulationTimeDuration(), tests);
+            });
 
-        invokeAnnotated(clazz, AfterAll.class, instance);
+        sim.run(
+            List.of(
+                () -> {
+                  try {
+                    invokeAnnotated(clazz, AfterAll.class, instance);
+                  } catch (Exception e) {
+                    throw new RuntimeException(e);
+                  }
+                }));
 
       } catch (Throwable t) {
         listener.executionFinished(classDesc, TestExecutionResult.failed(t));
@@ -183,14 +209,19 @@ public class SimulationTestEngine implements TestEngine {
       Method method,
       Object instance,
       SimulationClassTestDescriptor classDesc,
-      EngineExecutionListener listener)
+      EngineExecutionListener listener,
+      AtomicInteger idCounter)
       throws Exception {
 
     invokeAnnotated(classDesc.getTestClass(), BeforeEach.class, instance);
 
     MethodTestDescriptor methodDescriptor =
         new MethodTestDescriptor(
-            classDesc.getUniqueId().append("method", method.getName()), method, classDesc);
+            classDesc
+                .getUniqueId()
+                .append("method", method.getName() + idCounter.incrementAndGet()),
+            method,
+            classDesc);
     // TODO should the whole simulation be a single test or will each reporting each test be
     // helpful?
     listener.dynamicTestRegistered(methodDescriptor);
@@ -214,5 +245,23 @@ public class SimulationTestEngine implements TestEngine {
         method.invoke(instance);
       }
     }
+  }
+
+  private Supplier<RunnableFuture<?>> createTestSupplier(
+      Method method,
+      Object instance,
+      SimulationClassTestDescriptor classDesc,
+      EngineExecutionListener listener) {
+    final AtomicInteger testCounter = new AtomicInteger();
+    return () ->
+        new FutureTask<>(
+            () -> {
+              try {
+                this.executeTestMethod(method, instance, classDesc, listener, testCounter);
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            },
+            true);
   }
 }

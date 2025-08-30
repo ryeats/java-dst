@@ -35,7 +35,7 @@ public class SimulationCheckerImpl implements SimulationStateChecker {
 
   @Override
   public boolean advance() {
-    return incompleteTestTasks() && clock.instant().isBefore(end);
+    return incompleteTestTasks() && !clock.instant().isAfter(end);
   }
 
   public boolean incompleteTestTasks() {

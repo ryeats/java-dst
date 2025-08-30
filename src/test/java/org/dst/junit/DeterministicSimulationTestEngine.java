@@ -15,11 +15,13 @@
  */
 package org.dst.junit;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 
-@DeterministicSimulation
+@DeterministicSimulation(duration = "pt10s")
 public class DeterministicSimulationTestEngine {
 
   @BeforeAll
@@ -46,6 +48,11 @@ public class DeterministicSimulationTestEngine {
   @SimulationTest
   public void test4() {
     System.out.println("Test4");
+  }
+
+  @SimulationTest
+  public void test5() {
+    assertThat(false).isTrue();
   }
 
   @AfterAll

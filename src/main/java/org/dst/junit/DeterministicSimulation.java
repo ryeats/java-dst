@@ -25,11 +25,9 @@ import org.junit.platform.commons.annotation.Testable;
 @Retention(RetentionPolicy.RUNTIME)
 @Testable
 public @interface DeterministicSimulation {
-  int seed() default 0;
+  long seed() default 0;
 
   String fingerPrint() default "";
 
-  String duration() default "30s";
-
-  int tickLimit() default -1;
+  String duration() default "pt30s";
 }

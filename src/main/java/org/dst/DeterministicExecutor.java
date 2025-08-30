@@ -61,6 +61,9 @@ public class DeterministicExecutor implements Executor, AutoCloseable {
   @Override
   public void execute(Runnable runnable) {
     //    System.out.println("Calling execute from "+ Thread.currentThread());
+    if(singleThread.isShutdown()){
+      return;
+    }
     singleThread.submit(() -> workQueue.add(runnable));
   }
 

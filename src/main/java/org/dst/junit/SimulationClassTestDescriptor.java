@@ -15,6 +15,8 @@
  */
 package org.dst.junit;
 
+import java.time.Duration;
+import org.dst.Simulation;
 import org.junit.platform.engine.TestDescriptor;
 import org.junit.platform.engine.support.descriptor.AbstractTestDescriptor;
 import org.junit.platform.engine.support.descriptor.ClassSource;
@@ -22,6 +24,8 @@ import org.junit.platform.engine.support.descriptor.ClassSource;
 public class SimulationClassTestDescriptor extends AbstractTestDescriptor {
 
   private final Class<?> testClass;
+  private final Simulation simulation;
+  private final Duration simulationTimeDuration;
 
   public SimulationClassTestDescriptor(Class<?> testClass, TestDescriptor parent) {
     super(
@@ -29,6 +33,11 @@ public class SimulationClassTestDescriptor extends AbstractTestDescriptor {
         testClass.getSimpleName(),
         ClassSource.from(testClass));
     this.testClass = testClass;
+    DeterministicSimulation anno = testClass.getAnnotation(DeterministicSimulation.class);
+    Long seed = anno.seed() == 0 ? null : anno.seed();
+    String fingerPrint = anno.fingerPrint().isEmpty() ? null : anno.fingerPrint();
+    simulationTimeDuration = Duration.parse(anno.duration());
+    this.simulation = new Simulation(seed, fingerPrint);
     setParent(parent);
   }
 
@@ -39,5 +48,13 @@ public class SimulationClassTestDescriptor extends AbstractTestDescriptor {
 
   public Class<?> getTestClass() {
     return testClass;
+  }
+
+  public Simulation getSimulation() {
+    return this.simulation;
+  }
+
+  public Duration getSimulationTimeDuration() {
+    return simulationTimeDuration;
   }
 }

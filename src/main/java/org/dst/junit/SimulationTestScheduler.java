@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.dst.todo;
+package org.dst.junit;
 
 import java.util.List;
 import java.util.concurrent.Future;
